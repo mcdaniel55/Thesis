@@ -12,6 +12,8 @@ namespace Thesis
         static void Main(string[] args)
         {
             Tests.TestCCQuadrature1();
+
+            Console.ReadLine();
         }
     }
 }

@@ -50,7 +50,7 @@ namespace Thesis.Optimization
                 var newActiveRegions = new List<Region>();
                 foreach (Region reg in activeRegions) { if (reg != null) newActiveRegions.AddRange(reg.Branch()); }
 
-                Logger.($"Branched to produce {newActiveRegions.Count} new regions.");
+                Program.logger.WriteLine($"Branched to produce {newActiveRegions.Count} new regions.");
                 // Cull duplicates if desired
                 if (CullDuplicates)
                 {
