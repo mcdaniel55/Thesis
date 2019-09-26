@@ -1,30 +1,33 @@
 ﻿using System;
 using System.Collections.Generic;
 using MathNet.Numerics.Distributions;
+using Thesis;
 
 namespace ThesisQuadratureTests
 {
     static class CDFApprox
     {
         #region Old code
+        /*
         public static void TestDistribution(IContinuousDistribution dist)
+        {*/
+        // Mess here, testing an idea
+        // Try this with 2nd midpoints, also see what it does on different distributions
+        // From (a,b) to (c,d) at x in [a,c]
+
+        /*
+        // From (a,c) to (b,d) at x in [a,b]
+        double Lerp(double a, double b, double x, double c, double d)
         {
-            // Mess here, testing an idea
-            // Try this with 2nd midpoints, also see what it does on different distributions
-            // From (a,b) to (c,d) at x in [a,c]
-            
-            /*
-            // From (a,c) to (b,d) at x in [a,b]
-            double Lerp(double a, double b, double x, double c, double d)
-            {
-                var deltaXL = x - a;
-                var deltaXR = b - x;
-                var dist = b - a;
-                var y = (deltaXL * d + deltaXR * c) / dist;
-                return y;
-            }*/
-            // This is designed to output in a way that is easy to copy into excel for graphical analysis
-            const int sampleSize = 200;
+            var deltaXL = x - a;
+            var deltaXR = b - x;
+            var dist = b - a;
+            var y = (deltaXL * d + deltaXR * c) / dist;
+            return y;
+        }*/
+        // This is designed to output in a way that is easy to copy into excel for graphical analysis
+        /*
+        const int sampleSize = 200;
             const int smoothingPasses = sampleSize / 20;
             const double smoothingCoefficient = 0.4; // Less than 1
             Console.WriteLine("X, CDF, ECDF, ECDFSmooth");
@@ -89,7 +92,11 @@ namespace ThesisQuadratureTests
 
             Console.ReadLine();
         }
+        */
         #endregion
+        
+
+        /*
 
         /// <summary>
         /// Creates an approximate distribution by constructing the ECDF of a sample
@@ -110,7 +117,8 @@ namespace ThesisQuadratureTests
 
             return new ContinuousDistribution(sampleSorted, cumulativeDensities, rand);
         }
-
+        */
+        /*
         /// <summary>
         /// Create an approximate distribution from a sample by placing 1/n over midpoints, smoothing, and extrapolating tails
         /// </summary>
@@ -165,6 +173,7 @@ namespace ThesisQuadratureTests
                     break;
                 default: break;
             }
+            */
             /*
             if (modelLeftTail)
             {
@@ -203,7 +212,8 @@ namespace ThesisQuadratureTests
                 // variance to match the estimate, not just the TL you took the tail from.
             }
             */
+            /*
             return new ContinuousDistribution(abscissas, cumulativeDensities, rand);
-        }
+        }*/
     }
 }

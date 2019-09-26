@@ -1,15 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
+using Thesis;
 
-namespace ThesisOptNumericalTest.Optimization
+namespace Thesis.Optimization
 {
     /// <summary> In the context of this work, an optimization problem has  
     /// * a solution space on which some branching structure can be imposed
-    /// * a single loosely-continuous function to be minimized. </summary>
+    /// * a function to be minimized under which the branches have structure. </summary>
     public class SIDBranchAndBound
     {
         /// <summary> The starting region for the problem, containing all possible solutions. 
@@ -50,7 +50,7 @@ namespace ThesisOptNumericalTest.Optimization
                 var newActiveRegions = new List<Region>();
                 foreach (Region reg in activeRegions) { if (reg != null) newActiveRegions.AddRange(reg.Branch()); }
 
-                Logging.Log($"Branched to produce {newActiveRegions.Count} new regions.");
+                Logger.($"Branched to produce {newActiveRegions.Count} new regions.");
                 // Cull duplicates if desired
                 if (CullDuplicates)
                 {
@@ -66,12 +66,12 @@ namespace ThesisOptNumericalTest.Optimization
                             }
                         }
                     }
-                    Logging.Log($"Duplicates culled. {newActiveRegions.Count} regions remain.");
+                    Program.logger.WriteLine($"Duplicates culled. {newActiveRegions.Count} regions remain.");
                 }
 
                 // Update branching factor
                 branchingFactor = (branchingFactor * layer + newActiveRegions.Count / activeRegions.Length) / (layer + 1);
-                Logging.Log($"Branching factor revised to {branchingFactor}");
+                Program.logger.WriteLine($"Branching factor revised to {branchingFactor}");
                 activeRegions = newActiveRegions.ToArray();
 
                 // Set up random number generators for each task in a deterministic way
@@ -107,7 +107,7 @@ namespace ThesisOptNumericalTest.Optimization
                     if (discardable <= currentDiscardCount) { increasing = false; }
                     else {
                         currentSampleSize = newSampleSize;
-                        Logging.Log($"Revision expected to increase discard count from {currentDiscardCount} to {discardable}");
+                        Program.logger.WriteLine($"Revision expected to increase discard count from {currentDiscardCount} to {discardable}");
                         currentDiscardCount = discardable;
                     }
                 }
@@ -120,7 +120,7 @@ namespace ThesisOptNumericalTest.Optimization
                         samplingDistributions[i] = activeRegions[i].SamplingDistribution;
                     }
                     discardComplements = NormalComparison.ComputeDiscardComplementsClenshawCurtisAltInvariantAutomatic(samplingDistributions);
-                    Logging.Log($"Layer sample size increased to {currentSampleSize}");
+                    Program.logger.WriteLine($"Layer sample size increased to {currentSampleSize}");
                 }
 
                 // Update the best observed value
@@ -128,7 +128,7 @@ namespace ThesisOptNumericalTest.Optimization
                 {
                     BestObservedValue = Math.Min(reg.BestObservation, BestObservedValue);
                 }
-                Logging.Log($"Best value observed in layer: {BestObservedValue}");
+                Program.logger.WriteLine($"Best value observed in layer: {BestObservedValue}");
 
                 // --- Discard Regions ---
                 // Note: The sorting here is inefficient, but conceptually clearer than doing a quicksort and it isn't a performance bottleneck
@@ -138,7 +138,7 @@ namespace ThesisOptNumericalTest.Optimization
                 {
                     certainty -= discardComplements[i];
                 }
-                Logging.Log($"Uncertainty due to previously discarded regions: {1-certainty}");
+                Program.logger.WriteLine($"Uncertainty due to previously discarded regions: {1-certainty}");
                 bool discarding = true;
                 int discardCountTemp = 0;
                 while (discarding)
@@ -173,19 +173,19 @@ namespace ThesisOptNumericalTest.Optimization
                 {
                     if (discardComplements[i] < 1E-13) { discardedRegions.RemoveAt(i - activeRegions.Length - discarded); discarded++; }
                 }
-                Logging.Log($"Forgot {discarded} unimportant discarded regions. {discardedRegions.Count} discarded regions remain.");
+                Program.logger.WriteLine($"Forgot {discarded} unimportant discarded regions. {discardedRegions.Count} discarded regions remain.");
 
 
-                Logging.Log($"Layer {layer} complete. Analyzed {activeRegions.Length} active regions, and discarded {discardCountTemp} active regions.");
-                Logging.LogOnly("--- Active Regions --- ");
+                Program.logger.WriteLine($"Layer {layer} complete. Analyzed {activeRegions.Length} active regions, and discarded {discardCountTemp} active regions.");
+                Program.logger.WriteLine("--- Active Regions --- ");
                 for (int i = 0; i < activeRegions.Length; i++) { if (activeRegions[i] != null)
                     {
-                        Logging.LogOnly($"Region {i}: {activeRegions[i].ToString()} \n");
+                        Program.logger.WriteLine($"Region {i}: {activeRegions[i].ToString()} \n");
                     } }
-                Logging.LogOnly("--- Discarded Regions Still Affecting Probabilities --- ");
+                Program.logger.WriteLine("--- Discarded Regions Still Affecting Probabilities --- ");
                 for (int i = 0; i < discardedRegions.Count; i++)
                 {
-                    Logging.LogOnly($"Region {i}: {discardedRegions[i].ToString()} \n");
+                    Program.logger.WriteLine($"Region {i}: {discardedRegions[i].ToString()} \n");
                 }
             }
 

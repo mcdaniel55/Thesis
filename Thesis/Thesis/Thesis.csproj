@@ -5,4 +5,19 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="Temp\NormalComparison.cs" />
+    <Compile Remove="Temp\TestCode.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MathNet.Numerics" Version="4.8.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="EMSOptimizationOverhaul">
+      <HintPath>EMSOptimizationOverhaul.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

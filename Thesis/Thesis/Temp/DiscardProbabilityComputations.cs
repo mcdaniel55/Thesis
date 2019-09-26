@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using MathNet.Numerics.Distributions;
+using Thesis.Quadrature;
 
 namespace ThesisQuadratureTests
 {

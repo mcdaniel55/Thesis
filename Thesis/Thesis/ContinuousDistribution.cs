@@ -2,7 +2,7 @@
 using System.Data;
 using System.Collections.Generic;
 
-namespace Thesis.Quadrature
+namespace Thesis
 {
     /// <summary>
     /// An approximation of a continuous probability distribution using a piece-wise linear cumulative density function
@@ -112,8 +112,29 @@ namespace Thesis.Quadrature
                 observations[i] = statistic(sample);
             }
             //return CDFApprox.FromSample(observations, smoothingPasses, smoothingCoefficient, mode, rand);
-            return new ContinuousDistribution()
+            return ECDF(observations);
         }
+
+        /// <summary>
+        /// Creates an approximate distribution by constructing the ECDF of a sample
+        /// </summary>
+        /// <param name="sample"> A list of real values observed from the distribution to be approximated </param>
+        /// <param name="rand"> The random number generator to be used by this distribution </param>
+        /// <returns></returns>
+        public static ContinuousDistribution ECDF(double[] sample, Random rand = null)
+        {
+            if (rand == null) rand = Program.rand;
+            List<double> sampleSorted = new List<double>(sample);
+            sampleSorted.Sort();
+            List<double> cumulativeDensities = new List<double>(sample.Length);
+            for (int i = 0; i < sample.Length; i++)
+            {
+                cumulativeDensities.Add((i + 1) * 1.0 / sample.Length);
+            }
+
+            return new ContinuousDistribution(sampleSorted, cumulativeDensities, rand);
+        }
+
 
         /// <summary> Writes the values of the provided functions at the provided input values in a comma separated array to the designated textwriter. </summary>
         /// <remarks> Use Console.Out as the first argument to write to the console with this. </remarks>
