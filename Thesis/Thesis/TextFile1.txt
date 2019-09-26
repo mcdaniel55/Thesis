@@ -1,0 +1,3 @@
+﻿Tentative Coding Standards
+
+* Most, though not necessarily all, classes, methods, properties, etc. should be documented with xml.
