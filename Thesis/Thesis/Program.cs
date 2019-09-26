@@ -6,7 +6,7 @@ namespace Thesis
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            Tests.TestCCQuadrature1();
         }
     }
 }
