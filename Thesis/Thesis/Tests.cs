@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using MathNet.Numerics.Distributions;
 
 namespace Thesis
 {
     static class Tests
     {
-
-
-
+        
         // --- Temporary Tests ---
 
         public static void TestCCQuadrature1()
