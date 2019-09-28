@@ -1,7 +1,6 @@
-﻿using System;
+﻿using MathNet.Numerics.Distributions;
+using System;
 using System.Collections.Generic;
-using System.Text;
-using MathNet.Numerics.Distributions;
 using Thesis.Quadrature;
 
 namespace Thesis
@@ -9,10 +8,10 @@ namespace Thesis
     static class Tables
     {
 
-        // Print out the Monte Carlo, CLT, and Bootstrap estimates of the sampling distribution of a Gamma(2,2)
+        // Print out the Monte Carlo, CLT, and Bootstrap estimates of the sampling distribution the mean of an Exponential(2)
         public static void SamplingDistOfMean()
         {
-            Gamma gamma = new Gamma(2, 2);
+            Exponential dist = new Exponential(0.5, Program.rand);
             const int iterations = 10000;
             const int sampleSize = 30;
             double[] sample1 = new double[sampleSize];
@@ -23,10 +22,15 @@ namespace Thesis
             List<double> MCMeans = new List<double>(iterations);
             for (int i = 0; i < iterations; i++)
             {
-                gamma.Samples(sample1);
+                dist.Samples(sample1);
                 MCMeans.Add(Statistics.Mean(sample1));
             }
             MCMeans.Sort();
+            List<double> MCMeansError = new List<double>(iterations);
+            for (int i = 0; i < iterations; i++)
+            {
+                MCMeansError.Add(MCMeans[i] - dist.Mean);
+            }
 
             // CLT Model
             double sampleMean = Statistics.Mean(sample1);
@@ -37,7 +41,12 @@ namespace Thesis
             {
                 CLTNodes.Add(CLTModel.InverseCumulativeDistribution((i + 1) * 1.0 / iterations)); // This is already sorted
             }
-            CLTNodes.Add(sampleMean + 8 * Math.Sqrt(sampleVariance / sampleSize));
+            CLTNodes.Add(sampleMean + 8 * Math.Sqrt(sampleVariance / sampleSize)); // Model upper bound to map to 1
+            List<double> CLTErrors = new List<double>(iterations);
+            for (int i = 0; i < iterations; i++)
+            {
+                CLTErrors.Add(CLTNodes[i] - sampleMean);
+            }
 
             // Bootstrap Model
             List<double> BootstrapMeans = new List<double>(iterations);
@@ -51,12 +60,17 @@ namespace Thesis
                 BootstrapMeans.Add(Statistics.Mean(sample2));
             }
             BootstrapMeans.Sort();
-
-            logger.WriteLine("Monte Carlo,CLT,Bootstrap,Quantile");
-            // Output the results to a file
+            List<double> BootstrapErrors = new List<double>(iterations);
             for (int i = 0; i < iterations; i++)
             {
-                logger.WriteLine($"{MCMeans[i]},{CLTNodes[i]},{BootstrapMeans[i]},{(i + 1) * 1.0 / iterations}");
+                BootstrapErrors.Add(BootstrapMeans[i] - sampleMean);
+            }
+
+            // Output the results to a file
+            logger.WriteLine("Monte Carlo,CLT,Bootstrap,MCErr,CLTErr,BSErr,Quantile");
+            for (int i = 0; i < iterations; i++)
+            {
+                logger.WriteLine($"{MCMeans[i]},{CLTNodes[i]},{BootstrapMeans[i]},{MCMeansError[i]},{CLTErrors[i]},{BootstrapErrors[i]},{(i + 1) * 1.0 / iterations}");
             }
             logger.Dispose();
         }
