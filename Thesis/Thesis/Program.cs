@@ -11,8 +11,13 @@ namespace Thesis
 
         static void Main(string[] args)
         {
-            Tests.TestCCQuadrature1();
+            //Tests.TestCCQuadrature1();
+            //Tables.MakeLegendreTable();
+            //Tables.ShowGaussHermiteTable();
+            //Tables.MakeCCTable();
+            Tables.ShowTrapTable();
 
+            Console.WriteLine("Done.");
             Console.ReadLine();
         }
     }
