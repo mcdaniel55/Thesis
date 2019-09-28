@@ -13,17 +13,52 @@ namespace Thesis
         public static void SamplingDistOfMean()
         {
             Gamma gamma = new Gamma(2, 2);
+            const int iterations = 10000;
+            const int sampleSize = 30;
+            double[] sample1 = new double[sampleSize];
+            double[] sample2 = new double[sampleSize];
+            Logger logger = new Logger("DistOfMeanComparison.csv");
 
-            // Monte Carlo CDF
+            // Monte Carlo Samples
+            List<double> MCMeans = new List<double>(iterations);
+            for (int i = 0; i < iterations; i++)
+            {
+                gamma.Samples(sample1);
+                MCMeans.Add(Statistics.Mean(sample1));
+            }
+            MCMeans.Sort();
 
-            
-            
-            
-            
-            //Program.logger.WriteTablesSideBySide(Console.Out, );
+            // CLT Model
+            double sampleMean = Statistics.Mean(sample1);
+            double sampleVariance = Statistics.VarianceEstimate(sample1);
+            Normal CLTModel = new Normal(sampleMean, Math.Sqrt(sampleVariance / sampleSize));
+            List<double> CLTNodes = new List<double>(iterations);
+            for (int i = 0; i < iterations-1; i++)
+            {
+                CLTNodes.Add(CLTModel.InverseCumulativeDistribution((i + 1) * 1.0 / iterations)); // This is already sorted
+            }
+            CLTNodes.Add(sampleMean + 8 * Math.Sqrt(sampleVariance / sampleSize));
 
+            // Bootstrap Model
+            List<double> BootstrapMeans = new List<double>(iterations);
+            for (int i = 0; i < iterations; i++)
+            {
+                // Resample from sample1
+                for (int j = 0; j < sampleSize; j++)
+                {
+                    sample2[j] = sample1[Program.rand.Next(sampleSize)];
+                }
+                BootstrapMeans.Add(Statistics.Mean(sample2));
+            }
+            BootstrapMeans.Sort();
 
-
+            logger.WriteLine("Monte Carlo,CLT,Bootstrap,Quantile");
+            // Output the results to a file
+            for (int i = 0; i < iterations; i++)
+            {
+                logger.WriteLine($"{MCMeans[i]},{CLTNodes[i]},{BootstrapMeans[i]},{(i + 1) * 1.0 / iterations}");
+            }
+            logger.Dispose();
         }
 
         // Show values for Gauss-Hermite quadrature in the console

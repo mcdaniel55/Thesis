@@ -15,7 +15,9 @@ namespace Thesis
             //Tables.MakeLegendreTable();
             //Tables.ShowGaussHermiteTable();
             //Tables.MakeCCTable();
-            Tables.ShowTrapTable();
+            //Tables.ShowTrapTable();
+            Tables.SamplingDistOfMean();
+            
 
             Console.WriteLine("Done.");
             Console.ReadLine();
