@@ -11,7 +11,7 @@ namespace Thesis
         // Print out the Monte Carlo, CLT, and Bootstrap estimates of the sampling distribution the mean of an Exponential(2)
         public static void SamplingDistOfMean()
         {
-            Exponential dist = new Exponential(0.5, Program.rand);
+            Exponential dist = new Exponential(1000, Program.rand);
             const int iterations = 10000;
             const int sampleSize = 30;
             double[] sample1 = new double[sampleSize];
@@ -202,7 +202,85 @@ namespace Thesis
             logger.Dispose();
         }
 
+        // Print out values for each step of the Gauss Hermite quadrature example
+        public static void HermiteExampleTable()
+        {
 
+        }
+
+        // Print out values for each step of the Gauss Legendre quadrature example
+        public static void LegendreExampleTable()
+        {
+            Logger logger = new Logger("LegendreExampleTable.csv");
+            double f(double x) => Math.Sqrt(x);
+            const double intervalStart = 1;
+            const double intervalEnd = 4;
+            const int order = 7;
+
+            // Get nodes and weights for the GL rule of appropriate order
+            double[] nodeWeightArray = new double[2 * order];
+            BogaertGLWrapper.GetGLNodesAndWeightsNonAlloc(nodeWeightArray);
+
+            double[] nodes = new double[7];
+            double[] weights = new double[7];
+            for (int i = 0; i < 4; i++)
+            {
+                nodes[6 - i] = nodeWeightArray[4 * i];
+                nodes[i] = -nodeWeightArray[4 * i];
+                weights[i] = weights[6 - i] = nodeWeightArray[4 * i + 1];
+            }
+
+            double a = (intervalEnd - intervalStart) / 2.0;
+            double b = (intervalEnd + intervalStart) / 2.0;
+            double xOfz(double z) => a * z + b;
+
+            logger.WriteLine("x,w,h(x),sqrt(h(x)),wsqrt(h(x))");
+            for (int i = 0; i < 7; i++)
+            {
+                logger.WriteLine($"{nodes[i]},{weights[i]},{xOfz(nodes[i])},{f(xOfz(nodes[i]))},{weights[i] * f(xOfz(nodes[i]))}");
+            }
+
+            // Add up the last column and multiply the result by 'a' to get the answer.
+
+            logger.Dispose();
+        }
+
+        // Print out values for each step of the Gauss Legendre quadrature example
+        public static void ClenshawCurtisExampleTable()
+        {
+            Logger logger = new Logger("ClenshawCurtisExampleTable.csv");
+            double f(double x) => Math.Sqrt(x);
+            const double intervalStart = 1;
+            const double intervalEnd = 4;
+            const int order = 7;
+
+            double[] nodes = ClenshawCurtis.GetEvalPoints(6); // returns a double[7]
+            double[] weights = ClenshawCurtis.GetWeights(6); // returns a double[7]
+            
+            double a = (intervalEnd - intervalStart) / 2.0;
+            double b = (intervalEnd + intervalStart) / 2.0;
+            double xOfz(double z) => a * z + b;
+
+            double sum = 0;
+            double result = 0;
+            for (int i = 0; i < 7; i++)
+            {
+                sum += weights[i] * f(xOfz(nodes[i]));
+            }
+            result = sum * a;
+
+            logger.WriteLine("x,w,h(x),sqrt(h(x)),wsqrt(h(x))");
+            for (int i = 0; i < 7; i++)
+            {
+                logger.WriteLine($"{nodes[i]},{weights[i]},{xOfz(nodes[i])},{f(xOfz(nodes[i]))},{weights[i] * f(xOfz(nodes[i]))}");
+            }
+
+            // Add up the last column and multiply the result by 'a' to get the answer.
+            logger.WriteLine($"Sum of wsqrt(h(x)): {sum}");
+            logger.WriteLine($"Result: {result}");
+
+            logger.Dispose();
+        }
 
     }
 }
