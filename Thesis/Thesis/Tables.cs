@@ -312,6 +312,51 @@ namespace Thesis
             logger.Dispose();
         }
 
+        // Todo: Have this pick up where it left off, not restart every time
+        private static DataTable MonteCarloConvergenceTable(IContinuousDistribution[] dists, int distIndex, int[] iterationList, double exactAnswer)
+        {
+            DataTable MCTable = new DataTable("Monte Carlo");
+            MCTable.Columns.Add("Evaluations", typeof(int));
+            MCTable.Columns.Add("Estimate", typeof(double));
+            MCTable.Columns.Add("Error", typeof(double));
+
+            double error = double.PositiveInfinity;
+            double epsilon = Math.Pow(2, -48) * exactAnswer;
+            int iterations;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                iterations = iterationList[i];
+
+                // Figure out what the datapoint should be
+                int count = 0;
+                for (int j = 0; j < iterations; j++)
+                {
+                    double maxNj = double.NegativeInfinity;
+                    double ni = dists[distIndex].Sample();
+                    for (int k = 0; k < dists.Length; k++)
+                    {
+                        if (k == distIndex) continue;
+                        maxNj = Math.Max(maxNj, dists[k].Sample());
+                    }
+                    if (ni > maxNj) count++;
+                }
+                double estimate = count * 1.0 / iterations;
+                error = Math.Abs(estimate - exactAnswer);
+
+                // Add the datapoint
+                DataRow row = MCTable.NewRow();
+                row["Evaluations"] = iterations;
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                MCTable.Rows.Add(row);
+            }
+
+            return MCTable;
+        }
+
+
         // Normal with two branches
         public static void ComparisonTableEasy()
         {
@@ -319,7 +364,10 @@ namespace Thesis
 
             Normal N1 = new Normal(5, 5);
             Normal N2 = new Normal(8, 4);
+            var dists = new IContinuousDistribution[] { N1, N2 };
             logger.WriteLine($"Distributions: N1 = N({N1.Mean}:{N1.StdDev})   N2 = N({N2.Mean}:{N2.StdDev})");
+
+            int[] iterationList = new int[] { 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 46, 52, 58, 64, 70, 76, 82, 88, 94, 100, 112, 124, 136, 148, 160, 184, 208, 232, 256, 280, 328, 376, 424, 472, 520, 616, 712, 808, 904, 1000, 3001, 5002, 8002, 12001, 15001, 18001};
 
             // === Compute 1 - P(D_1), which is P(N1 > N2) ===
             // Exact pairwise computation
@@ -329,20 +377,26 @@ namespace Thesis
             logger.WriteLine($"Exact: {exactComplementDiscard}");
 
             // --- Monte Carlo ---
+            /*
             DataTable MCTable = new DataTable("Monte Carlo");
             MCTable.Columns.Add("Evaluations", typeof(int));
             MCTable.Columns.Add("Estimate", typeof(double));
             MCTable.Columns.Add("Error", typeof(double));
 
-            int iterations = 8;
+
             double error = double.PositiveInfinity;
             double epsilon = Math.Pow(2, -48) * exactComplementDiscard;
-            while (error > epsilon && iterations < 1050000)
+            int iterations;
+
+            for (int i = 0; i < iterationList.Length; i++)
             {
+                if (error < epsilon) break;
+                iterations = iterationList[i];
+
                 // Figure out what the datapoint should be
                 int count = 0;
                 double n1, n2;
-                for (int i = 0; i < iterations; i++)
+                for (int j = 0; j < iterations; j++)
                 {
                     n1 = N1.Sample();
                     n2 = N2.Sample();
@@ -357,11 +411,9 @@ namespace Thesis
                 row["Estimate"] = estimate;
                 row["Error"] = error;
                 MCTable.Rows.Add(row);
-
-                // Double the iterations
-                iterations *= 2;
-            }
-
+            }*/
+            DataTable MCTable = MonteCarloConvergenceTable(dists, 0, iterationList, exactComplementDiscard);
+            
             // --- Trap Rule ---
             DataTable TrapTable = new DataTable("Trapezoid Rule");
             TrapTable.Columns.Add("Evaluations", typeof(int));
@@ -372,11 +424,10 @@ namespace Thesis
             double lowerBound = Math.Max(N1.Mean - 8 * N1.StdDev, N2.Mean - 8 * N2.StdDev);
             double upperBound = Math.Max(N1.Mean + 8 * N1.StdDev, N2.Mean + 8 * N2.StdDev);
             logger.WriteLine($"Bounds: ({lowerBound}:{upperBound})");
-            // Use a number of eval points from this list
-            int[] iterationList = new int[] { 4, 8, 12, 16, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 2000, 4000, 8000, 16000 };
-
-            iterations = iterationList[0];
-            error = double.PositiveInfinity;
+            
+            double error = double.PositiveInfinity;
+            double epsilon = Math.Pow(2, -48) * exactComplementDiscard;
+            int iterations;
 
             for (int i = 0; i < iterationList.Length; i++)
             {
@@ -401,15 +452,12 @@ namespace Thesis
             SimpTable.Columns.Add("Estimate", typeof(double));
             SimpTable.Columns.Add("Error", typeof(double));
 
-            iterationList = new int[] { 6, 9, 12, 15, 21, 27, 36, 48, 60, 81, 99, 144, 201, 270, 360, 510, 660, 900, 1200, 1500, 2100, 3000 };
-
-            iterations = iterationList[0];
             error = double.PositiveInfinity;
 
             for (int i = 0; i < iterationList.Length; i++)
             {
                 if (error < epsilon) break;
-                iterations = iterationList[i];
+                iterations = iterationList[i] - 1;
 
                 double estimate = NewtonCotes.Simpsons38Rule(integrand, lowerBound, upperBound, iterations);
                 error = Math.Abs(estimate - exactComplementDiscard);
@@ -428,9 +476,6 @@ namespace Thesis
             GLTable.Columns.Add("Estimate", typeof(double));
             GLTable.Columns.Add("Error", typeof(double));
 
-            iterationList = new int[] { 4, 8, 12, 16, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 2000, 4000, 8000, 16000 };
-
-            iterations = iterationList[0];
             error = double.PositiveInfinity;
 
             for (int i = 0; i < iterationList.Length; i++)
@@ -455,9 +500,6 @@ namespace Thesis
             CCTable.Columns.Add("Estimate", typeof(double));
             CCTable.Columns.Add("Error", typeof(double));
 
-            iterationList = new int[] { 4, 8, 12, 16, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 2000, 4000, 8000, 16000 };
-
-            iterations = iterationList[0];
             error = double.PositiveInfinity;
 
             for (int i = 0; i < iterationList.Length; i++)
@@ -482,12 +524,9 @@ namespace Thesis
             GHTable.Columns.Add("Estimate", typeof(double));
             GHTable.Columns.Add("Error", typeof(double));
 
-            iterationList = new int[] { 4, 8, 12, 16, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 2000 };
-
             double HermiteIntegrand(double z) => N2.CumulativeDistribution(N1.Mean + Math.Sqrt(2) * N1.StdDev * z);
             double scalar = 1.0 / Math.Sqrt(Math.PI);
 
-            iterations = iterationList[0];
             error = double.PositiveInfinity;
 
             for (int i = 0; i < iterationList.Length; i++)
