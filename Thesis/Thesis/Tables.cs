@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Thesis.Quadrature;
+using System.Data;
 
 namespace Thesis
 {
@@ -37,7 +38,7 @@ namespace Thesis
             double sampleVariance = Statistics.VarianceEstimate(sample1);
             Normal CLTModel = new Normal(sampleMean, Math.Sqrt(sampleVariance / sampleSize));
             List<double> CLTNodes = new List<double>(iterations);
-            for (int i = 0; i < iterations-1; i++)
+            for (int i = 0; i < iterations - 1; i++)
             {
                 CLTNodes.Add(CLTModel.InverseCumulativeDistribution((i + 1) * 1.0 / iterations)); // This is already sorted
             }
@@ -79,7 +80,7 @@ namespace Thesis
         public static void ShowGaussHermiteTable()
         {
             double[] values = GaussHermite.GetNodesAndWeights(7);
-            for (int i = 0; i < values.Length; i+=2)
+            for (int i = 0; i < values.Length; i += 2)
             {
                 Console.WriteLine($"Node[{i}]: {values[i]}, Weight[{i}]: {values[i + 1]}");
             }
@@ -96,7 +97,7 @@ namespace Thesis
                 nodes[i] = -vals[4 * i];
                 nodes[6 - i] = vals[4 * i];
                 weights[i] = vals[4 * i + 1];
-                weights[6-i] = weights[i];
+                weights[6 - i] = weights[i];
             }
             nodes[3] = 0;
             weights[3] = vals[13];
@@ -109,7 +110,7 @@ namespace Thesis
         {
             double[] nodes = ClenshawCurtis.GetEvalPoints(6);
             double[] weights = ClenshawCurtis.GetWeights(6);
-            
+
             NodeAndWeightTikZTable("Clenshaw Curtis", nodes, weights);
         }
 
@@ -128,7 +129,7 @@ namespace Thesis
 
         // Print out TikZ code for a quadrature rule table/graph figure
         // xvals has a 0 in the middle, and both xvals and yvals should have 7 values
-        public static void NodeAndWeightTikZTable(string quadratureName, double[] xvals, double[]yvals)
+        public static void NodeAndWeightTikZTable(string quadratureName, double[] xvals, double[] yvals)
         {
             Logger logger = new Logger(quadratureName + ".txt");
 
@@ -205,7 +206,36 @@ namespace Thesis
         // Print out values for each step of the Gauss Hermite quadrature example
         public static void HermiteExampleTable()
         {
+            Logger logger = new Logger("HermiteExampleTable.csv");
+            double f(double x) => Math.Sqrt(Math.Abs(x));
+            //const int order = 7;
+            const int order = 13;
 
+            double[] nodes = new double[order];
+            double[] weights = new double[order];
+            double[] nodeWeightArray = GaussHermite.GetNodesAndWeights(order);
+
+            for (int i = 0; i <= order / 2; i++)
+            {
+                nodes[order - i - 1] = -nodeWeightArray[4 * i];
+                nodes[i] = nodeWeightArray[4 * i];
+                weights[i] = weights[order - i - 1] = nodeWeightArray[4 * i + 1];
+            }
+
+            double sum = 0;
+
+            logger.WriteLine("x,w,f(x),wf(x)");
+            for (int i = 0; i < order; i++)
+            {
+                logger.WriteLine($"{nodes[i]},{weights[i]},{f(nodes[i])},{weights[i] * f(nodes[i])}");
+                sum += weights[i] * f(nodes[i]);
+            }
+
+            logger.WriteLine($"Sum of wf(x): {sum}");
+            logger.WriteLine($"GH order 100: {GaussHermite.Integrate(f, 100)}");
+            logger.WriteLine($"GH order 500: {GaussHermite.Integrate(f, 500)}");
+            logger.WriteLine($"GL order 100000: {GaussLegendre.Integrate(x => Math.Exp(-(x * x)) * f(x), -100, 100, 100000)}");
+            logger.Dispose();
         }
 
         // Print out values for each step of the Gauss Legendre quadrature example
@@ -240,7 +270,7 @@ namespace Thesis
                 logger.WriteLine($"{nodes[i]},{weights[i]},{xOfz(nodes[i])},{f(xOfz(nodes[i]))},{weights[i] * f(xOfz(nodes[i]))}");
             }
 
-            // Add up the last column and multiply the result by 'a' to get the answer.
+            // You can add up the last column and multiply the result by 'a' to get the answer.
 
             logger.Dispose();
         }
@@ -256,7 +286,7 @@ namespace Thesis
 
             double[] nodes = ClenshawCurtis.GetEvalPoints(6); // returns a double[7]
             double[] weights = ClenshawCurtis.GetWeights(6); // returns a double[7]
-            
+
             double a = (intervalEnd - intervalStart) / 2.0;
             double b = (intervalEnd + intervalStart) / 2.0;
             double xOfz(double z) => a * z + b;
@@ -281,6 +311,210 @@ namespace Thesis
 
             logger.Dispose();
         }
+
+        // Normal with two branches
+        public static void ComparisonTableEasy()
+        {
+            Logger logger = new Logger("ComparisonTableEasy.csv");
+
+            Normal N1 = new Normal(5, 5);
+            Normal N2 = new Normal(8, 4);
+            logger.WriteLine($"Distributions: N1 = N({N1.Mean}:{N1.StdDev})   N2 = N({N2.Mean}:{N2.StdDev})");
+
+            // === Compute 1 - P(D_1), which is P(N1 > N2) ===
+            // Exact pairwise computation
+            Normal diff = new Normal(N2.Mean - N1.Mean, Math.Sqrt(N1.Variance + N2.Variance));
+            double exactComplementDiscard = diff.CumulativeDistribution(0);
+
+            logger.WriteLine($"Exact: {exactComplementDiscard}");
+
+            // --- Monte Carlo ---
+            DataTable MCTable = new DataTable("Monte Carlo");
+            MCTable.Columns.Add("Evaluations", typeof(int));
+            MCTable.Columns.Add("Estimate", typeof(double));
+            MCTable.Columns.Add("Error", typeof(double));
+
+            int iterations = 8;
+            double error = double.PositiveInfinity;
+            double epsilon = Math.Pow(2, -48) * exactComplementDiscard;
+            while (error > epsilon && iterations < 1050000)
+            {
+                // Figure out what the datapoint should be
+                int count = 0;
+                double n1, n2;
+                for (int i = 0; i < iterations; i++)
+                {
+                    n1 = N1.Sample();
+                    n2 = N2.Sample();
+                    if (n1 > n2) count++;
+                }
+                double estimate = count * 1.0 / iterations;
+                error = Math.Abs(estimate - exactComplementDiscard);
+
+                // Add the datapoint
+                DataRow row = MCTable.NewRow();
+                row["Evaluations"] = iterations;
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                MCTable.Rows.Add(row);
+
+                // Double the iterations
+                iterations *= 2;
+            }
+
+            // --- Trap Rule ---
+            DataTable TrapTable = new DataTable("Trapezoid Rule");
+            TrapTable.Columns.Add("Evaluations", typeof(int));
+            TrapTable.Columns.Add("Estimate", typeof(double));
+            TrapTable.Columns.Add("Error", typeof(double));
+
+            double integrand(double x) => N1.Density(x) * N2.CumulativeDistribution(x);
+            double lowerBound = Math.Max(N1.Mean - 8 * N1.StdDev, N2.Mean - 8 * N2.StdDev);
+            double upperBound = Math.Max(N1.Mean + 8 * N1.StdDev, N2.Mean + 8 * N2.StdDev);
+            logger.WriteLine($"Bounds: ({lowerBound}:{upperBound})");
+            // Use a number of eval points from this list
+            int[] iterationList = new int[] { 4, 8, 12, 16, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 2000, 4000, 8000, 16000 };
+
+            iterations = iterationList[0];
+            error = double.PositiveInfinity;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                iterations = iterationList[i];
+                
+                // # of eval points will be one greater than step count
+                double estimate = NewtonCotes.TrapezoidRule(integrand, lowerBound, upperBound, iterations - 1); 
+                error = Math.Abs(estimate - exactComplementDiscard);
+
+                // Add the datapoint
+                DataRow row = TrapTable.NewRow();
+                row["Evaluations"] = iterations;
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                TrapTable.Rows.Add(row);
+            }
+
+            // --- Simpson's 3/8 Rule ---
+            DataTable SimpTable = new DataTable("Simpsons 3/8 Rule");
+            SimpTable.Columns.Add("Evaluations", typeof(int));
+            SimpTable.Columns.Add("Estimate", typeof(double));
+            SimpTable.Columns.Add("Error", typeof(double));
+
+            iterationList = new int[] { 6, 9, 12, 15, 21, 27, 36, 48, 60, 81, 99, 144, 201, 270, 360, 510, 660, 900, 1200, 1500, 2100, 3000 };
+
+            iterations = iterationList[0];
+            error = double.PositiveInfinity;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                iterations = iterationList[i];
+
+                double estimate = NewtonCotes.Simpsons38Rule(integrand, lowerBound, upperBound, iterations);
+                error = Math.Abs(estimate - exactComplementDiscard);
+                
+                // Add the datapoint
+                DataRow row = SimpTable.NewRow();
+                row["Evaluations"] = iterations + 1; // One more than the step count
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                SimpTable.Rows.Add(row);
+            }
+
+            // --- Gauss Legendre ---
+            DataTable GLTable = new DataTable("Gauss Legendre");
+            GLTable.Columns.Add("Evaluations", typeof(int));
+            GLTable.Columns.Add("Estimate", typeof(double));
+            GLTable.Columns.Add("Error", typeof(double));
+
+            iterationList = new int[] { 4, 8, 12, 16, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 2000, 4000, 8000, 16000 };
+
+            iterations = iterationList[0];
+            error = double.PositiveInfinity;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                iterations = iterationList[i];
+
+                double estimate = GaussLegendre.Integrate(integrand, lowerBound, upperBound, iterations);
+                error = Math.Abs(estimate - exactComplementDiscard);
+
+                // Add the datapoint
+                DataRow row = GLTable.NewRow();
+                row["Evaluations"] = iterations; // One more than the step count
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                GLTable.Rows.Add(row);
+            }
+
+            // --- Clenshaw Curtis ---
+            DataTable CCTable = new DataTable("Clenshaw Curtis");
+            CCTable.Columns.Add("Evaluations", typeof(int));
+            CCTable.Columns.Add("Estimate", typeof(double));
+            CCTable.Columns.Add("Error", typeof(double));
+
+            iterationList = new int[] { 4, 8, 12, 16, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 2000, 4000, 8000, 16000 };
+
+            iterations = iterationList[0];
+            error = double.PositiveInfinity;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                iterations = iterationList[i];
+
+                double estimate = ClenshawCurtis.Integrate(integrand, lowerBound, upperBound, iterations);
+                error = Math.Abs(estimate - exactComplementDiscard);
+
+                // Add the datapoint
+                DataRow row = CCTable.NewRow();
+                row["Evaluations"] = iterations; // One more than the step count
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                CCTable.Rows.Add(row);
+            }
+
+            // --- Gauss Hermite ---
+            DataTable GHTable = new DataTable("Gauss Hermite");
+            GHTable.Columns.Add("Evaluations", typeof(int));
+            GHTable.Columns.Add("Estimate", typeof(double));
+            GHTable.Columns.Add("Error", typeof(double));
+
+            iterationList = new int[] { 4, 8, 12, 16, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 2000 };
+
+            double HermiteIntegrand(double z) => N2.CumulativeDistribution(N1.Mean + Math.Sqrt(2) * N1.StdDev * z);
+            double scalar = 1.0 / Math.Sqrt(Math.PI);
+
+            iterations = iterationList[0];
+            error = double.PositiveInfinity;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                iterations = iterationList[i];
+
+                double estimate = scalar * GaussHermite.Integrate(HermiteIntegrand, iterations);
+                error = Math.Abs(estimate - exactComplementDiscard);
+
+                // Add the datapoint
+                DataRow row = GHTable.NewRow();
+                row["Evaluations"] = iterations; // One more than the step count
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                GHTable.Rows.Add(row);
+            }
+
+            logger.WriteLine($"");
+            logger.WriteLine($"");
+
+
+            logger.WriteTablesSideBySide(MCTable, TrapTable, SimpTable, GLTable, GHTable, CCTable);
+            logger.Dispose();
+        }
+
+
 
     }
 }
