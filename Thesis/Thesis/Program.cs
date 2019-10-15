@@ -20,7 +20,8 @@ namespace Thesis
             //Tables.LegendreExampleTable();
             //Tables.ClenshawCurtisExampleTable();
             //Tables.HermiteExampleTable();
-            Tables.ComparisonTableEasy();
+
+            Tables.ComparisonTableEasySet();
 
             Console.WriteLine("Done.");
             Console.ReadLine();

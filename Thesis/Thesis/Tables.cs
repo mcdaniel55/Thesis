@@ -312,6 +312,9 @@ namespace Thesis
             logger.Dispose();
         }
 
+
+        // ===== Convergence Tables =====
+
         // Todo: Have this pick up where it left off, not restart every time
         private static DataTable MonteCarloConvergenceTable(IContinuousDistribution[] dists, int distIndex, int[] iterationList, double exactAnswer)
         {
@@ -357,25 +360,121 @@ namespace Thesis
         }
 
 
-        // Normal with two branches
-        public static void ComparisonTableEasy()
+        private static DataTable TrapRuleConvergenceTable(IContinuousDistribution[] dists, int[] iterationList, double exactAnswer, double lBound, double uBound)
         {
-            Logger logger = new Logger("ComparisonTableEasy.csv");
+            DataTable TrapTable = new DataTable("Trapezoid Rule");
+            TrapTable.Columns.Add("Evaluations", typeof(int));
+            TrapTable.Columns.Add("Estimate", typeof(double));
+            TrapTable.Columns.Add("Error", typeof(double));
 
+            //double integrand(double x) => N1.Density(x) * N2.CumulativeDistribution(x);
+            //double lowerBound = Math.Max(N1.Mean - 8 * N1.StdDev, N2.Mean - 8 * N2.StdDev);
+            //double upperBound = Math.Max(N1.Mean + 8 * N1.StdDev, N2.Mean + 8 * N2.StdDev);
+
+            double error = double.PositiveInfinity;
+            double epsilon = Math.Pow(2, -48) * exactAnswer;
+            int iterations;
+
+            double Integrand(double x)
+            {
+                double val = dists[0].Density(x);
+                for (int i = 1; i < dists.Length; i++)
+                {
+                    val *= dists[i].CumulativeDistribution(x);
+                }
+                return val;
+            }
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                iterations = iterationList[i];
+
+                // # of eval points will be one greater than step count
+                double estimate = NewtonCotes.TrapezoidRule(Integrand, lBound, uBound, iterations - 1);
+                error = Math.Abs(estimate - exactAnswer);
+
+                // Add the datapoint
+                DataRow row = TrapTable.NewRow();
+                row["Evaluations"] = iterations;
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                TrapTable.Rows.Add(row);
+            }
+
+            return TrapTable;
+        }
+
+        public static void ComparisonTableEasySet()
+        {
             Normal N1 = new Normal(5, 5);
             Normal N2 = new Normal(8, 4);
             var dists = new IContinuousDistribution[] { N1, N2 };
-            logger.WriteLine($"Distributions: N1 = N({N1.Mean}:{N1.StdDev})   N2 = N({N2.Mean}:{N2.StdDev})");
+            double QuantileRef(IContinuousDistribution dist, double x) => ((Normal)dist).InverseCumulativeDistribution(x);
+            ComparisonTable(dists, QuantileRef);
+        }
 
+        // Create a bunch of tables comparing the performances of different quadrature techniques computing 1-P(D_0) on the provided set of distributions
+        public static void ComparisonTable(IContinuousDistribution[] dists, Func<IContinuousDistribution, double, double> quantileFunctionRef)
+        {
+            Logger logger = new Logger("ComparisonTableEasy.csv");
+
+            // Print the distributions in use for record-keeping
+            logger.Write($"Distributions:");
+            for (int i = 0; i < dists.Length; i++)
+            {
+                logger.Write($" Dist {i}: {dists[i].GetType().Name}(mean {dists[i].Mean} stdDev {dists[i].StdDev})");
+            }
+            logger.WriteLine("");
+
+            // Pre-defined numbers of iterations to use
             int[] iterationList = new int[] { 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 46, 52, 58, 64, 70, 76, 82, 88, 94, 100, 112, 124, 136, 148, 160, 184, 208, 232, 256, 280, 328, 376, 424, 472, 520, 616, 712, 808, 904, 1000, 3001, 5002, 8002, 12001, 15001, 18001};
 
-            // === Compute 1 - P(D_1), which is P(N1 > N2) ===
-            // Exact pairwise computation
-            Normal diff = new Normal(N2.Mean - N1.Mean, Math.Sqrt(N1.Variance + N2.Variance));
-            double exactComplementDiscard = diff.CumulativeDistribution(0);
+            // === Compute 1 - P(D_0), which is P(N_0 > max N_j) ===
+            // Figure out the bounds first
+            double lBound = double.NegativeInfinity;
+            double uBound = double.NegativeInfinity;
+            double epsilonM = Math.Pow(2, -52);
+            for (int i = 0; i < dists.Length; i++)
+            {
+                lBound = Math.Max(lBound, quantileFunctionRef(dists[i], epsilonM));
+                uBound = Math.Max(uBound, quantileFunctionRef(dists[i], 1 - epsilonM));
+            }
 
-            logger.WriteLine($"Exact: {exactComplementDiscard}");
+            logger.WriteLine($"Bounds: ({lBound}:{uBound})");
 
+            // We need to figure out what the answer is so we can compute errors
+            double exactDiscardComplement = -1;
+            // Exact pairwise computation if possible
+            if (dists.Length == 2 && dists[0].GetType() == typeof(Normal))
+            {
+                Normal diff = new Normal(dists[1].Mean - dists[0].Mean, Math.Sqrt(dists[0].Variance + dists[1].Variance));
+                exactDiscardComplement = diff.CumulativeDistribution(0);
+                logger.WriteLine($"Exact via Difference of Normals: {exactDiscardComplement}");
+            }
+            else // Otherwise use automatic Clenshaw Curtis to find the exact answer.
+            {
+                double Integrand(double x)
+                {
+                    double val = dists[0].Density(x);
+                    for (int i = 1; i < dists.Length; i++)
+                    {
+                        val *= dists[i].CumulativeDistribution(x);
+                    }
+                    return val;
+                }
+
+                // Inefficient Placeholder
+                exactDiscardComplement = NewtonCotes.TrapezoidRule(Integrand, lBound, uBound, 10000);
+
+                logger.WriteLine($"Exact via Integral: {exactDiscardComplement}");
+            }
+
+            
+            // ...
+
+
+            #region Old Code
             // --- Monte Carlo ---
             /*
             DataTable MCTable = new DataTable("Monte Carlo");
@@ -412,41 +511,15 @@ namespace Thesis
                 row["Error"] = error;
                 MCTable.Rows.Add(row);
             }*/
-            DataTable MCTable = MonteCarloConvergenceTable(dists, 0, iterationList, exactComplementDiscard);
+            #endregion
+
+            // Generate the tables
+            DataTable MCTable = MonteCarloConvergenceTable(dists, 0, iterationList, exactDiscardComplement);
+            DataTable TrapTable = TrapRuleConvergenceTable(dists, iterationList, exactDiscardComplement, lBound, uBound);
             
-            // --- Trap Rule ---
-            DataTable TrapTable = new DataTable("Trapezoid Rule");
-            TrapTable.Columns.Add("Evaluations", typeof(int));
-            TrapTable.Columns.Add("Estimate", typeof(double));
-            TrapTable.Columns.Add("Error", typeof(double));
-
-            double integrand(double x) => N1.Density(x) * N2.CumulativeDistribution(x);
-            double lowerBound = Math.Max(N1.Mean - 8 * N1.StdDev, N2.Mean - 8 * N2.StdDev);
-            double upperBound = Math.Max(N1.Mean + 8 * N1.StdDev, N2.Mean + 8 * N2.StdDev);
-            logger.WriteLine($"Bounds: ({lowerBound}:{upperBound})");
-            
-            double error = double.PositiveInfinity;
-            double epsilon = Math.Pow(2, -48) * exactComplementDiscard;
-            int iterations;
-
-            for (int i = 0; i < iterationList.Length; i++)
-            {
-                if (error < epsilon) break;
-                iterations = iterationList[i];
-                
-                // # of eval points will be one greater than step count
-                double estimate = NewtonCotes.TrapezoidRule(integrand, lowerBound, upperBound, iterations - 1); 
-                error = Math.Abs(estimate - exactComplementDiscard);
-
-                // Add the datapoint
-                DataRow row = TrapTable.NewRow();
-                row["Evaluations"] = iterations;
-                row["Estimate"] = estimate;
-                row["Error"] = error;
-                TrapTable.Rows.Add(row);
-            }
 
             // --- Simpson's 3/8 Rule ---
+            /*
             DataTable SimpTable = new DataTable("Simpsons 3/8 Rule");
             SimpTable.Columns.Add("Evaluations", typeof(int));
             SimpTable.Columns.Add("Estimate", typeof(double));
@@ -547,9 +620,10 @@ namespace Thesis
 
             logger.WriteLine($"");
             logger.WriteLine($"");
+            */
 
-
-            logger.WriteTablesSideBySide(MCTable, TrapTable, SimpTable, GLTable, GHTable, CCTable);
+            //logger.WriteTablesSideBySide(MCTable, TrapTable, SimpTable, GLTable, GHTable, CCTable);
+            logger.WriteTablesSideBySide(MCTable, TrapTable);
             logger.Dispose();
         }
 
