@@ -21,8 +21,12 @@ namespace Thesis
             //Tables.ClenshawCurtisExampleTable();
             //Tables.HermiteExampleTable();
 
+            //Tests.GenerateHardDistributionSet();
+
+            Tables.ComparisonTablePairwise();
             Tables.ComparisonTableEasySet();
             Tables.ComparisonTableMediumSet();
+            Tables.ComparisonTableHardSet();
 
             Console.WriteLine("Done.");
             Console.ReadLine();
