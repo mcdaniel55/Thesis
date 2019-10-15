@@ -324,7 +324,7 @@ namespace Thesis
             MCTable.Columns.Add("Error", typeof(double));
 
             double error = double.PositiveInfinity;
-            double epsilon = Math.Pow(2, -48) * exactAnswer;
+            double epsilon = Math.Pow(2, -48); //* exactAnswer;
             int iterations;
 
             for (int i = 0; i < iterationList.Length; i++)
@@ -372,7 +372,7 @@ namespace Thesis
             //double upperBound = Math.Max(N1.Mean + 8 * N1.StdDev, N2.Mean + 8 * N2.StdDev);
 
             double error = double.PositiveInfinity;
-            double epsilon = Math.Pow(2, -48) * exactAnswer;
+            double epsilon = Math.Pow(2, -48); //* exactAnswer;
             int iterations;
 
             double Integrand(double x)
@@ -405,19 +405,193 @@ namespace Thesis
             return TrapTable;
         }
 
+        private static DataTable Simpsons38ConvergenceTable(IContinuousDistribution[] dists, int[] iterationList, double exactAnswer, double lowerBound, double upperBound)
+        {
+            DataTable SimpTable = new DataTable("Simpsons 3/8 Rule");
+            SimpTable.Columns.Add("Evaluations", typeof(int));
+            SimpTable.Columns.Add("Estimate", typeof(double));
+            SimpTable.Columns.Add("Error", typeof(double));
+
+            double Integrand(double x)
+            {
+                double val = dists[0].Density(x);
+                for (int i = 1; i < dists.Length; i++)
+                {
+                    val *= dists[i].CumulativeDistribution(x);
+                }
+                return val;
+            }
+
+            double error = double.PositiveInfinity;
+            double epsilon = Math.Pow(2, -48);// * exactAnswer;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                int iterations = iterationList[i] - 1;
+
+                double estimate = NewtonCotes.Simpsons38Rule(Integrand, lowerBound, upperBound, iterations);
+                error = Math.Abs(estimate - exactAnswer);
+
+                // Add the datapoint
+                DataRow row = SimpTable.NewRow();
+                row["Evaluations"] = iterations + 1; // One more than the step count
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                SimpTable.Rows.Add(row);
+            }
+
+            return SimpTable;
+        }
+
+        private static DataTable GaussLegendreConvergenceTable(IContinuousDistribution[] dists, int[] iterationList, double exactAnswer, double lowerBound, double upperBound)
+        {
+            DataTable GLTable = new DataTable("Gauss Legendre");
+            GLTable.Columns.Add("Evaluations", typeof(int));
+            GLTable.Columns.Add("Estimate", typeof(double));
+            GLTable.Columns.Add("Error", typeof(double));
+
+            double Integrand(double x)
+            {
+                double val = dists[0].Density(x);
+                for (int i = 1; i < dists.Length; i++)
+                {
+                    val *= dists[i].CumulativeDistribution(x);
+                }
+                return val;
+            }
+
+            double error = double.PositiveInfinity;
+            double epsilon = Math.Pow(2, -48);// * exactAnswer;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                int iterations = iterationList[i];
+
+                double estimate = GaussLegendre.Integrate(Integrand, lowerBound, upperBound, iterations);
+                error = Math.Abs(estimate - exactAnswer);
+
+                // Add the datapoint
+                DataRow row = GLTable.NewRow();
+                row["Evaluations"] = iterations; // One more than the step count
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                GLTable.Rows.Add(row);
+            }
+
+            return GLTable;
+        }
+
+        private static DataTable ClenshawCurtisConvergenceTable(IContinuousDistribution[] dists, int[] iterationList, double exactAnswer, double lowerBound, double upperBound)
+        {
+            DataTable CCTable = new DataTable("Clenshaw Curtis");
+            CCTable.Columns.Add("Evaluations", typeof(int));
+            CCTable.Columns.Add("Estimate", typeof(double));
+            CCTable.Columns.Add("Error", typeof(double));
+
+            double Integrand(double x)
+            {
+                double val = dists[0].Density(x);
+                for (int i = 1; i < dists.Length; i++)
+                {
+                    val *= dists[i].CumulativeDistribution(x);
+                }
+                return val;
+            }
+
+            double error = double.PositiveInfinity;
+            double epsilon = Math.Pow(2, -48);// * exactAnswer;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                int iterations = iterationList[i];
+
+                double estimate = ClenshawCurtis.Integrate(Integrand, lowerBound, upperBound, iterations);
+                error = Math.Abs(estimate - exactAnswer);
+
+                // Add the datapoint
+                DataRow row = CCTable.NewRow();
+                row["Evaluations"] = iterations; // One more than the step count
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                CCTable.Rows.Add(row);
+            }
+
+            return CCTable;
+        }
+
+        private static DataTable GaussHermiteConvergenceTable(IContinuousDistribution[] dists, int[] iterationList, double exactAnswer, double lowerBound, double upperBound)
+        {
+            DataTable GHTable = new DataTable("Gauss Hermite");
+            GHTable.Columns.Add("Evaluations", typeof(int));
+            GHTable.Columns.Add("Estimate", typeof(double));
+            GHTable.Columns.Add("Error", typeof(double));
+
+            // This integrand assumes the first error distribution N_0 is normal
+            double HermiteIntegrand(double z)  //=> N2.CumulativeDistribution(N1.Mean + Math.Sqrt(2) * N1.StdDev * z);
+            {
+                double val = 1;
+                for (int i = 1; i < dists.Length; i++)
+                {
+                    val *= dists[i].CumulativeDistribution(dists[0].Mean + Math.Sqrt(2) * dists[0].StdDev * z);
+                }
+                return val;
+            }
+            double scalar = 1.0 / Math.Sqrt(Math.PI);
+
+            double epsilon = Math.Pow(2, -48);// * exactAnswer;
+            double error = double.PositiveInfinity;
+
+            for (int i = 0; i < iterationList.Length; i++)
+            {
+                if (error < epsilon) break;
+                int iterations = iterationList[i];
+
+                double estimate = scalar * GaussHermite.Integrate(HermiteIntegrand, iterations);
+                error = Math.Abs(estimate - exactAnswer);
+
+                // Add the datapoint
+                DataRow row = GHTable.NewRow();
+                row["Evaluations"] = iterations; // One more than the step count
+                row["Estimate"] = estimate;
+                row["Error"] = error;
+                GHTable.Rows.Add(row);
+            }
+
+            return GHTable;
+        }
+
+        private static double QuantileRefNormal(IContinuousDistribution dist, double x) => ((Normal)dist).InverseCumulativeDistribution(x);
+        
         public static void ComparisonTableEasySet()
         {
-            Normal N1 = new Normal(5, 5);
-            Normal N2 = new Normal(8, 4);
-            var dists = new IContinuousDistribution[] { N1, N2 };
-            double QuantileRef(IContinuousDistribution dist, double x) => ((Normal)dist).InverseCumulativeDistribution(x);
-            ComparisonTable(dists, QuantileRef);
+            var dists = new IContinuousDistribution[] {
+                new Normal(5, 5),
+                new Normal(8, 4) };
+            ComparisonTable("Easy", dists, QuantileRefNormal);
+        }
+
+        public static void ComparisonTableMediumSet() // Look up what you wanted to use here
+        {
+            var dists = new IContinuousDistribution[] {
+            //new Normal(-1.2, 0.8),
+            new Normal(-2, 0.6),
+            new Normal(-1.2, 0.8),
+            new Normal(-2.2, 0.9),
+            new Normal(-3.0, 0.8),
+            new Normal(-3.1, 0.4),
+            new Normal(-4, 0.6),
+            new Normal(-4.2, 0.2),
+            new Normal(-4.9, 1.2)};
+            ComparisonTable("Medium", dists, QuantileRefNormal);
         }
 
         // Create a bunch of tables comparing the performances of different quadrature techniques computing 1-P(D_0) on the provided set of distributions
-        public static void ComparisonTable(IContinuousDistribution[] dists, Func<IContinuousDistribution, double, double> quantileFunctionRef)
+        public static void ComparisonTable(string name, IContinuousDistribution[] dists, Func<IContinuousDistribution, double, double> quantileFunctionRef)
         {
-            Logger logger = new Logger("ComparisonTableEasy.csv");
+            Logger logger = new Logger("ComparisonTable" + name + ".csv");
 
             // Print the distributions in use for record-keeping
             logger.Write($"Distributions:");
@@ -465,7 +639,7 @@ namespace Thesis
                 }
 
                 // Inefficient Placeholder
-                exactDiscardComplement = NewtonCotes.TrapezoidRule(Integrand, lBound, uBound, 10000);
+                exactDiscardComplement = NewtonCotes.TrapezoidRule(Integrand, lBound, uBound, 5000);
 
                 logger.WriteLine($"Exact via Integral: {exactDiscardComplement}");
             }
@@ -516,7 +690,10 @@ namespace Thesis
             // Generate the tables
             DataTable MCTable = MonteCarloConvergenceTable(dists, 0, iterationList, exactDiscardComplement);
             DataTable TrapTable = TrapRuleConvergenceTable(dists, iterationList, exactDiscardComplement, lBound, uBound);
-            
+            DataTable SimpTable = Simpsons38ConvergenceTable(dists, iterationList, exactDiscardComplement, lBound, uBound);
+            DataTable GLTable = GaussLegendreConvergenceTable(dists, iterationList, exactDiscardComplement, lBound, uBound);
+            DataTable CCTable = ClenshawCurtisConvergenceTable(dists, iterationList, exactDiscardComplement, lBound, uBound);
+            DataTable GHTable = GaussHermiteConvergenceTable(dists, iterationList, exactDiscardComplement, lBound, uBound);
 
             // --- Simpson's 3/8 Rule ---
             /*
@@ -623,7 +800,7 @@ namespace Thesis
             */
 
             //logger.WriteTablesSideBySide(MCTable, TrapTable, SimpTable, GLTable, GHTable, CCTable);
-            logger.WriteTablesSideBySide(MCTable, TrapTable);
+            logger.WriteTablesSideBySide(MCTable, TrapTable, SimpTable, GLTable, GHTable, CCTable);
             logger.Dispose();
         }
 

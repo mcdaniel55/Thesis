@@ -22,6 +22,7 @@ namespace Thesis
             //Tables.HermiteExampleTable();
 
             Tables.ComparisonTableEasySet();
+            Tables.ComparisonTableMediumSet();
 
             Console.WriteLine("Done.");
             Console.ReadLine();
