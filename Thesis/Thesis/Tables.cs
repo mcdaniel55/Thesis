@@ -652,7 +652,7 @@ namespace Thesis
         }
 
 
-        // Create a bunch of tables comparing the performances of different quadrature techniques computing 1-P(D_0) on the provided set of distributions
+        // Create a bunch of tables comparing the performances of different quadrature techniques computing 1-P(D_0) on the provided set of distributions, assuming they are already negated
         private static void ComparisonTable(string name, IContinuousDistribution[] dists, Func<IContinuousDistribution, double, double> quantileFunctionRef)
         {
             Logger logger = new Logger("ComparisonTable" + name + ".csv");

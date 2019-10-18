@@ -101,7 +101,7 @@ namespace Thesis
             for (int i = 0; i < arrayToFill.Length; i++) { arrayToFill[i] = Sample(); }
         }
 
-        public ContinuousDistribution BootstrapSamplingDistribution(Func<double[],double> statistic, int iterations = 250, int smoothingPasses = 0, double smoothingCoefficient = 0.3/*, ExtrapolationMode mode = ExtrapolationMode.Linear*/)
+        public ContinuousDistribution BootstrapSamplingDistribution(Func<double[],double> statistic, int iterations = 250)
         {
             int sampleSize = abscissas.Count;
             double[] sample = new double[sampleSize];
@@ -111,7 +111,6 @@ namespace Thesis
                 SampleNonAlloc(sample); // Fill the array with fresh sample points
                 observations[i] = statistic(sample);
             }
-            //return CDFApprox.FromSample(observations, smoothingPasses, smoothingCoefficient, mode, rand);
             return ECDF(observations);
         }
 
