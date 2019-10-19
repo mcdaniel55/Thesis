@@ -26,7 +26,9 @@ namespace Thesis
             //Tables.ComparisonTablePairwise();
             //Tables.ComparisonTableEasySet();
             //Tables.ComparisonTableMediumSet();
-            //Tables.ComparisonTableHardSet();
+            Tables.ComparisonTableHardSet();
+
+
 
             Console.WriteLine("Done.");
             Console.ReadLine();

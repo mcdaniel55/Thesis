@@ -1,6 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 
-namespace Thesis.Quadrature
+namespace Thesis
 {
     static class Statistics
     {

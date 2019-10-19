@@ -220,12 +220,14 @@ namespace Thesis
             return result;
         }
 
-        public static Normal[] NegateNormalDistributions(Normal[] distributions)
+        public static NegatedDistribution[] NegateNormalDistributions(Normal[] distributions)
         {
-            var result = new Normal[distributions.Length];
+            var result = new NegatedDistribution[distributions.Length];
+            double epsilon = Math.Pow(2, -52);
             for (int i = 0; i < distributions.Length; i++)
             {
-                result[i] = new Normal(-distributions[i].Mean, distributions[i].StdDev, distributions[i].RandomSource);
+                result[i] = new NegatedDistribution(distributions[i], distributions[i].InverseCumulativeDistribution(epsilon), distributions[i].InverseCumulativeDistribution(1 - epsilon));
+                    //-distributions[i].Mean, distributions[i].StdDev, distributions[i].RandomSource);
             }
             return result;
         }
