@@ -7,7 +7,7 @@ namespace Thesis
     /// <summary>
     /// An approximation of a continuous probability distribution using a piece-wise linear cumulative density function
     /// </summary>
-    class ContinuousDistribution
+    public class ContinuousDistribution
     {
         /// <summary> An array of x-values at which the CDF's value is given explicitly, in increasing order </summary>
         public List<double> abscissas;

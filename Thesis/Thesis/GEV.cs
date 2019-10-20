@@ -1,54 +1,165 @@
 ﻿using System;
 using System.Collections.Generic;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics;
 
 namespace Thesis
 {
     public class GEV : IContinuousDistribution
     {
-        public double Mode => throw new NotImplementedException();
+        public readonly double location, scale, shape;
+        public Random RandomSource { get; set; }
 
-        public double Minimum => throw new NotImplementedException();
+        public GEV(double location, double scale, double shape, Random rand = null)
+        {
+            RandomSource = rand == null ? Program.rand : rand;
+            this.location = location;
+            this.scale = scale;
+            this.shape = shape;
+        }
 
-        public double Maximum => throw new NotImplementedException();
+        public double Mode
+        {
+            get
+            {
+                if (shape == 0) return location;
+                return location + scale * (Math.Pow(1 + shape, -shape) - 1) / shape;
+            }
+        }
 
-        public double Mean => throw new NotImplementedException();
+        public double Minimum
+        {
+            get
+            {
+                if (shape <= 0) return double.NegativeInfinity;
+                return location - scale / shape;
+            }
+        }
 
-        public double Variance => throw new NotImplementedException();
+        public double Maximum
+        {
+            get
+            {
+                if (shape >= 0) return double.PositiveInfinity;
+                return location - scale / shape;
+            }
+        }
 
-        public double StdDev => throw new NotImplementedException();
+        public double Mean
+        {
+            get
+            {
+                if (shape == 0) return location + scale * Constants.EulerMascheroni;
+                if (shape < 1) return location + scale * (SpecialFunctions.Gamma(1 - shape) - 1) / shape;
+                return double.PositiveInfinity;
+            }
+        }
 
-        public double Entropy => throw new NotImplementedException();
+        public double Variance
+        {
+            get
+            {
+                if (shape == 0) return scale * scale * Math.PI * Math.PI / 6;
+                if (shape >= 0.5) return double.PositiveInfinity;
+                double g1 = SpecialFunctions.Gamma(1 - shape);
+                return scale * scale * (SpecialFunctions.Gamma(1-2*shape) - g1 * g1) / (shape * shape);
+            }
+        }
 
-        public double Skewness => throw new NotImplementedException();
+        public double StdDev
+        {
+            get
+            {
+                return Math.Sqrt(Variance);
+            }
+        }
 
-        public double Median => throw new NotImplementedException();
+        public double Entropy
+        {
+            get
+            {
+                return Math.Log(scale) + Constants.EulerMascheroni * (shape + 1) + 1; // Needs testing, might be Log instead of Log10
+            }
+        }
 
-        public Random RandomSource { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public double Skewness
+        {
+            get
+            {
+                /*
+                if (shape == 0) return 12 * Math.Sqrt(6) * 1.20205690315959428540d / (Math.PI * Math.PI);
+                if (shape < 0.3333333333333333d)
+                {
+                    double g1 = SpecialFunctions.Gamma(1 - shape);
+                    double g2 = SpecialFunctions.Gamma(1 - 2 * shape);
+                    double g3 = SpecialFunctions.Gamma(1 - 3 * shape);
+                    return Math.Sign(shape) * (g3 - 3 * g2 * g1 + 2 * Math.Pow(g1,3)) / Math.Pow(g2 - g1 * g1,1.5);
+                }
+                throw new InvalidOperationException("The skewness of the GEV distribution is not defined for shape parameters greater than or equal to 1/3");*/
+                throw new NotImplementedException();
+            }
+        }
+
+        public double Median
+        {
+            get
+            {
+                if (shape == 0) return location - scale * Math.Log(Math.Log(2));
+                return location + scale * (Math.Pow(Math.Log(2), -shape) - 1) / shape;
+            }
+        }
 
         public double CumulativeDistribution(double x)
         {
-            throw new NotImplementedException();
+            double s = (x - location) / scale;
+            if (shape == 0) return Math.Exp(-Math.Exp(-s));
+            if (shape > 0 && s <= -1.0 / shape) return 0;
+            if (shape < 0 && s >= -1.0 / shape) return 1;
+            return Math.Exp(-Math.Pow(1 + shape * s, -1.0 / shape));
         }
 
         public double Density(double x)
         {
-            throw new NotImplementedException();
+            double s = (x - location) / scale;
+            if (shape == 0) return Math.Exp(-s) * Math.Exp(-Math.Exp(-s));
+            if (shape > 0 && s <= -1.0 / shape) return 0;
+            if (shape < 0 && s >= -1.0 / shape) return 0;
+            return Math.Pow(1 + shape * s, -1.0 / shape - 1) * Math.Exp(-Math.Pow(1 + shape * s, -1.0 / shape));
         }
 
         public double DensityLn(double x)
         {
-            throw new NotImplementedException();
+            double s = (x - location) / scale;
+            if (shape == 0) return -Math.Exp(-s) - s;
+            if (shape > 0 && s <= -1.0 / shape) return double.NegativeInfinity;
+            if (shape < 0 && s >= -1.0 / shape) return double.NegativeInfinity;
+            return (-1.0 / shape - 1) * Math.Log(1 + shape * s) - Math.Pow(1 + shape * s, -1.0 / shape);
+        }
+
+        public double Quantile(double q)
+        {
+            if (shape == 0)
+            {
+                if (q == 0) return double.NegativeInfinity;
+                if (q == 1) return double.PositiveInfinity;
+                return location - scale * Math.Log(-Math.Log(q));
+            }
+            if (shape > 0 && q == 1) return double.PositiveInfinity;
+            if (shape < 0 && q == 0) return double.NegativeInfinity;
+            return location + scale * (Math.Pow(-Math.Log(q), -shape) - 1) / shape;
         }
 
         public double Sample()
         {
-            throw new NotImplementedException();
+            return Quantile(RandomSource.NextDouble());
         }
 
         public void Samples(double[] values)
         {
-            throw new NotImplementedException();
+            for (int i = 0; i < values.Length; i++)
+            {
+                values[i] = Quantile(RandomSource.NextDouble());
+            }
         }
 
         public IEnumerable<double> Samples()
