@@ -30,6 +30,7 @@ namespace Thesis
         public static double ExcessDistributionFunction(double x, double a, double c)
         {
             if (c < 0 && x > -a / c) return 0;
+            if (c == 0) return Math.Exp(-x / a);
             return Math.Pow(1 + c * x / a, -1 / c);
         }
 
@@ -261,15 +262,66 @@ namespace Thesis
     {
         public double a, c; // Parameters, with c corresponding to the gamma or xi parameter of the associated GEV distribution
         public int transitionIndex;
+        public double transitionAbscissa;
+        List<double> data;
 
         public PickandsApproximation(IList<double> data)
         {
-
+            if (data.Count < 30) throw new ArgumentException("Insufficient data count for Pickands Balkema De Haan.");
+            this.data = new List<double>(data);
+            this.data.Sort();
+            PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(this.data, out a, out c, out transitionIndex); // Write m to transitionIndex
+            transitionIndex = this.data.Count - 4 * transitionIndex; // Convert from m to the actual transitionIndex
+            transitionAbscissa = this.data[transitionIndex]; // m is guaranteed to be > 0
         }
         
+        public double CDF(double x)
+        {
+            if (x <= transitionAbscissa) // ECDF Case
+            {
+                // Fast search for which elements to interpolate between
+                int idx = data.BinarySearch(x);
+                if (idx < 0) idx = ~idx;
+                else idx++; // Left-continuity here
+                return idx * 1.0 / data.Count;
+            }
+            // Pickands' tail case
+            x -= transitionAbscissa;
+            double offset = (transitionIndex + 1.0) / data.Count;
+            double scale = 1 - offset;
+            return scale * PickandsBalkemaDeHaan.TailCDF(x, a, c) + offset;
+        }
+
+        public double Quantile(double q)
+        {
+            double offset = (transitionIndex + 1.0) / data.Count;
+            if (q > offset) // Pickands approximation case
+            {
+                // Renormalize q for the tail QF
+                double scale = 1 - offset;
+                q = (q - offset) / scale;
+                return transitionAbscissa + PickandsBalkemaDeHaan.TailQuantileFunction(q, a, c);
+            }
+            // ECDF case
+            return data[(int)(q * data.Count)];
+        }
+
+        public double Sample(Random rand)
+        {
+            return Quantile(rand.NextDouble());
+        }
+
+        public void Samples(double[] array, Random rand)
+        {
+            for (int i = 0; i < array.Length; i++)
+            {
+                array[i] = Quantile(rand.NextDouble());
+            }
+        }
         
         /// <summary> Constructs an alternative ContinuousDistribution version of the approximation with a piecewise-linear ECDF and an upper tail generated using Pickands' algorithm.  </summary>
         /// <param name="data"> An indexed set (array, list, etc.) of observations from a random variable, sorted in increasing order. </param>
+        /// <remarks> This is wonderful for testing, but relatively expensive computation and storage-wise. This also uses the right-continuous rather than left-continuous version of the ECDF, though it hardly matters.</remarks>
         public static ContinuousDistribution ApproximatePiecewiseDistributionWithUpperTail(IList<double> data, int resolution = 1000)
         {
             // --- Construct the linear ECDF ---
@@ -308,8 +360,8 @@ namespace Thesis
                 quantiles[i] = PickandsBalkemaDeHaan.TailQuantileFunction(quantiles[i], a, c);
             }
             // Add the CDF values first, then translate and add the abscissas
-            double offset = cdfVals[cdfVals.Count - 1];
-            double scale = 1 - offset;
+            double offset = cdfVals[cdfVals.Count - 1]; // Vertical offset
+            double scale = 1 - offset; // How much of the full unit probability is left for the tail
             for (int i = 0; i < quantiles.Count; i++)
             {
                 cdfVals.Add(scale * PickandsBalkemaDeHaan.TailCDF(quantiles[i], a, c) + offset);

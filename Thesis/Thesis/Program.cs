@@ -28,11 +28,13 @@ namespace Thesis
             //Tables.ComparisonTableEasySet();
             //Tables.ComparisonTableMediumSet();
             //Tables.ComparisonTableHardSet();
+            //Tests.TestPickands();
 
+            /*
             GEV dist = new GEV(0, 1, 0.5);
             double q = dist.CumulativeDistribution(0.5);
             Console.WriteLine($"q = F(0.5): {q} f(0.5) {dist.Density(0.5)} Quantile(q): {dist.Quantile(q)}");
-
+            */
 
             Console.WriteLine("Done.");
             Console.ReadLine();
