@@ -36,6 +36,8 @@ namespace Thesis
             Console.WriteLine($"q = F(0.5): {q} f(0.5) {dist.Density(0.5)} Quantile(q): {dist.Quantile(q)}");
             */
 
+            Tests.TestGEV();
+
             Console.WriteLine("Done.");
             Console.ReadLine();
         }
