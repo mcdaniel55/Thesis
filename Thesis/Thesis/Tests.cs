@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace Thesis
 {
@@ -179,8 +180,20 @@ namespace Thesis
                 return bestSoFar;
             }
 
+            GEV OptimizeBFGS(double initialShape, double initialScale, double initialLocation)
+            {
+                Func<Vector<double>, double> objectiveFunction = x => Fitness(new GEV(x[2], x[1], x[0], Program.rand));
+                // Formatted by shape, scale, location
+                var lowerBounds = CreateVector.DenseOfArray(new double[] { -2, Math.Min(-3 * initialScale, 3 * initialScale), Math.Min(-3 * initialLocation, 3 * initialLocation) });
+                var upperBounds = CreateVector.DenseOfArray(new double[] { 2, Math.Max(-3 * initialScale, 3 * initialScale), Math.Max(-3 * initialLocation, 3 * initialLocation) });
+                var initialGuess = CreateVector.DenseOfArray(new double[] { initialShape, initialScale, initialLocation });
+
+                var min = FindMinimum.OfFunctionConstrained(objectiveFunction, lowerBounds, upperBounds, initialGuess);
+                return new GEV(min[2], min[1], min[0], Program.rand);
+            }
+
             // Optimize for Xi
-            double fitNeg, fitZero, fitPos;
+            /*double fitNeg, fitZero, fitPos;
             GEV bestNeg = OptimizeV2(-1, out fitNeg);
             GEV bestPos = OptimizeV2(1, out fitPos);
             double locZero, scaleZero;
@@ -197,7 +210,14 @@ namespace Thesis
             Console.WriteLine($"Best Negative model: shape: {bestNeg.shape} scale: {bestNeg.scale} location: {bestNeg.location} fitness: {fitNeg}");
             Console.WriteLine($"Best Positive model: shape: {bestPos.shape} scale: {bestPos.scale} location: {bestPos.location} fitness: {fitPos}");
             Console.WriteLine($"Zero model: shape: {zeroModel.shape} scale: {zeroModel.scale} location: {zeroModel.location} fitness: {fitZero}");
+            */
 
+            double scaleGuess = Math.Sqrt(6 * Statistics.Variance(observations)) / Math.PI;
+            double locationGuess = Statistics.Median(observations) + scaleGuess * Math.Log(Math.Log(2));
+            double shapeGuess = 0.5; // Use Pickands estimator here in the actual model
+            GEV bestModel = OptimizeBFGS(shapeGuess, scaleGuess, locationGuess);
+
+            output.WriteLine($"Model: shape{bestModel.shape} location{bestModel.location} scale {bestModel.scale}");
             double[] quantiles = Interpolation.Linspace(0.000001, 0.999999, 2000);
             for (int i = 0; i < quantiles.Length; i++) { quantiles[i] = bestModel.Quantile(quantiles[i]); }
 
