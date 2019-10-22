@@ -67,7 +67,13 @@ namespace Thesis
                 }
                 // This scale may or may not work for Xi > 0.5
                 scale = Math.Sign(shape) * shape * Math.Sqrt(variance) / Math.Sqrt(SpecialFunctions.Gamma(1 - 2 * shape) - SpecialFunctions.Gamma(1 - shape) * SpecialFunctions.Gamma(1 - shape));
+                if (double.IsNaN(scale)) scale = Math.Sqrt(6 * variance) / Math.PI;
                 location = median - scale * (Math.Pow(Math.Log(2), -shape) - 1) / shape;
+
+                /*if (double.IsNaN(scale) || double.IsNaN(location))
+                {
+                    Console.WriteLine("Problem.");
+                }*/
             }
 
             double Fitness(GEV model)
@@ -85,24 +91,21 @@ namespace Thesis
 
             GEV Optimize(double startingval, out double fitness)
             {
-                double locationEst = 0;
-                double scaleEst = 0;
+                double locationEst;
+                double scaleEst;
                 double bestScore = double.PositiveInfinity;
                 GEV bestSoFar = null;
-                bool improving;
                 bool increasing = false;
                 int sinceImproved = 0;
                 double shapeEst = startingval; // Neg or pos will stay that way throughout the optimization
 
                 while (true)
                 {
-                    improving = false;
                     EstimateParameters(shapeEst, medianEst, varianceEst, out locationEst, out scaleEst);
                     GEV model = new GEV(locationEst, scaleEst, shapeEst, Program.rand);
                     double score = Fitness(model);
                     if (score < bestScore)
                     {
-                        improving = true;
                         bestScore = score;
                         bestSoFar = model;
                         sinceImproved = 0;
@@ -111,7 +114,6 @@ namespace Thesis
                     {
                         increasing ^= true;
                         if (++sinceImproved > 10) break;
-                        improving = false;
                     }
                     if (increasing) shapeEst += 0.3 * startingval;
                     else shapeEst *= 0.5;
@@ -119,10 +121,68 @@ namespace Thesis
                 fitness = bestScore;
                 return bestSoFar;
             }
+
+            GEV OptimizeV2(double initialGuess, out double fitness)
+            {
+                double locationEst, scaleEst;
+                double bestScore = double.PositiveInfinity;
+                GEV bestSoFar = null;
+                double shapeEst = initialGuess;
+                double bestShapeSoFar = initialGuess;
+                // Grow the estimate by doubling until it is no longer improving
+                while (true)
+                {
+                    EstimateParameters(shapeEst, medianEst, varianceEst, out locationEst, out scaleEst);
+                    GEV model = new GEV(locationEst, scaleEst, shapeEst, Program.rand);
+                    double score = Fitness(model);
+                    if (score < bestScore) // If it improved
+                    {
+                        bestScore = score;
+                        bestSoFar = model;
+                        bestShapeSoFar = shapeEst;
+                    }
+                    else break;
+                    shapeEst *= 2;
+                }
+                double magnitude = bestShapeSoFar;
+                for (int i = 0; i < 10; i++) // 10 corresponds to 3 correct digits
+                {
+                    double delta = magnitude * Math.Pow(2, -(i + 1)); // Half in size for each iteration
+
+                    // Three positions: the current one, one lower by delta, and one higher by delta
+                    
+                    // Lower Model
+                    EstimateParameters(bestShapeSoFar - delta, medianEst, varianceEst, out locationEst, out scaleEst);
+                    GEV lowerModel = new GEV(locationEst, scaleEst, bestShapeSoFar - delta, Program.rand);
+                    double lowerScore = Fitness(lowerModel);
+                    
+                    // Upper Model
+                    EstimateParameters(bestShapeSoFar + delta, medianEst, varianceEst, out locationEst, out scaleEst);
+                    GEV upperModel = new GEV(locationEst, scaleEst, bestShapeSoFar + delta, Program.rand);
+                    double upperScore = Fitness(upperModel);
+                    
+                    // Move to the best of the three
+                    double bestfitness = Math.Min(bestScore, Math.Min(upperScore, lowerScore));
+                    bestScore = bestfitness;
+                    if (lowerScore == bestfitness)
+                    {
+                        bestShapeSoFar = bestShapeSoFar - delta;
+                        bestSoFar = lowerModel;
+                    }
+                    else if (upperScore == bestfitness)
+                    {
+                        bestShapeSoFar = bestShapeSoFar + delta;
+                        bestSoFar = upperModel;
+                    }
+                }
+                fitness = bestScore;
+                return bestSoFar;
+            }
+
             // Optimize for Xi
             double fitNeg, fitZero, fitPos;
-            GEV bestNeg = Optimize(-1, out fitNeg);
-            GEV bestPos = Optimize(1, out fitPos);
+            GEV bestNeg = OptimizeV2(-1, out fitNeg);
+            GEV bestPos = OptimizeV2(1, out fitPos);
             double locZero, scaleZero;
             EstimateParameters(0, medianEst, varianceEst, out locZero, out scaleZero);
             GEV zeroModel = new GEV(locZero, scaleZero, 0, Program.rand);
