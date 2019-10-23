@@ -18,6 +18,7 @@ namespace Thesis
         public static double Lerp(double a, double b, double c, double d, double x)
         {
             return ((x - a) * d + (c - x) * b) / (c - a);
+            //return b + (x - a) * (d - b) / (c - a);
         }
 
         public static double[] Linspace(double a, double b, int size)

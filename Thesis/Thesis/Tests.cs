@@ -40,7 +40,14 @@ namespace Thesis
             Logger output = new Logger("GEV Test.csv");
             IContinuousDistribution dist = new ChiSquared(4, Program.rand);
             //IContinuousDistribution dist = new Exponential(2, Program.rand);
-            const int sampleSize = 100;
+            const int sampleSize = 300;
+            
+            // Report the sample 1-1/e quantile
+            double upperQuantile = ((ChiSquared)dist).InverseCumulativeDistribution(1 - 1.0 / sampleSize);
+            double lowerQuantile = ((ChiSquared)dist).InverseCumulativeDistribution(1.0 / sampleSize);
+            output.WriteLine($"1-1/samplesize quantile: {upperQuantile}");
+            output.WriteLine($"1/samplesize quantile: {lowerQuantile}");
+
             // Monte Carlo for the distribution of the sample minimum
             double[] observations = new double[10000];
             
@@ -53,10 +60,12 @@ namespace Thesis
                 }
                 observations[i] = max;
             }
+            Sorting.Sort(observations);
 
             ContinuousDistribution MonteCarloDistributionOfTheMaximum = ContinuousDistribution.ECDF(observations, Program.rand);
 
             // --- Find the best fit GEV distribution for this dataset ---
+            /*
             // Compute location and scale parameter estimates for a given shape parameter Xi using the median and variance
             void EstimateParameters(double shape, double median, double variance, out double location, out double scale)
             {
@@ -70,14 +79,9 @@ namespace Thesis
                 scale = Math.Sign(shape) * shape * Math.Sqrt(variance) / Math.Sqrt(SpecialFunctions.Gamma(1 - 2 * shape) - SpecialFunctions.Gamma(1 - shape) * SpecialFunctions.Gamma(1 - shape));
                 if (double.IsNaN(scale)) scale = Math.Sqrt(6 * variance) / Math.PI;
                 location = median - scale * (Math.Pow(Math.Log(2), -shape) - 1) / shape;
+            }*/
 
-                /*if (double.IsNaN(scale) || double.IsNaN(location))
-                {
-                    Console.WriteLine("Problem.");
-                }*/
-            }
-
-            double Fitness(GEV model)
+            double FitnessExactModel(GEV model)
             {
                 double val = 1;
                 for (int i = 0; i < observations.Length; i++)
@@ -86,10 +90,11 @@ namespace Thesis
                 }
                 return val;
             }
-
+            
             double medianEst = Statistics.Median(observations);
             double varianceEst = Statistics.VarianceEstimate(observations);
 
+            /*
             GEV Optimize(double startingval, out double fitness)
             {
                 double locationEst;
@@ -104,7 +109,7 @@ namespace Thesis
                 {
                     EstimateParameters(shapeEst, medianEst, varianceEst, out locationEst, out scaleEst);
                     GEV model = new GEV(locationEst, scaleEst, shapeEst, Program.rand);
-                    double score = Fitness(model);
+                    double score = FitnessExactModel(model);
                     if (score < bestScore)
                     {
                         bestScore = score;
@@ -135,7 +140,7 @@ namespace Thesis
                 {
                     EstimateParameters(shapeEst, medianEst, varianceEst, out locationEst, out scaleEst);
                     GEV model = new GEV(locationEst, scaleEst, shapeEst, Program.rand);
-                    double score = Fitness(model);
+                    double score = FitnessExactModel(model);
                     if (score < bestScore) // If it improved
                     {
                         bestScore = score;
@@ -155,12 +160,12 @@ namespace Thesis
                     // Lower Model
                     EstimateParameters(bestShapeSoFar - delta, medianEst, varianceEst, out locationEst, out scaleEst);
                     GEV lowerModel = new GEV(locationEst, scaleEst, bestShapeSoFar - delta, Program.rand);
-                    double lowerScore = Fitness(lowerModel);
+                    double lowerScore = FitnessExactModel(lowerModel);
                     
                     // Upper Model
                     EstimateParameters(bestShapeSoFar + delta, medianEst, varianceEst, out locationEst, out scaleEst);
                     GEV upperModel = new GEV(locationEst, scaleEst, bestShapeSoFar + delta, Program.rand);
-                    double upperScore = Fitness(upperModel);
+                    double upperScore = FitnessExactModel(upperModel);
                     
                     // Move to the best of the three
                     double bestfitness = Math.Min(bestScore, Math.Min(upperScore, lowerScore));
@@ -179,16 +184,15 @@ namespace Thesis
                 fitness = bestScore;
                 return bestSoFar;
             }
-
-            GEV OptimizeBFGS(double initialShape, double initialScale, double initialLocation)
+            */
+            GEV OptimizeBFGS(Func<Vector<double>,double> objectiveFunc, double initialShape, double initialScale, double initialLocation)
             {
-                Func<Vector<double>, double> objectiveFunction = x => Fitness(new GEV(x[2], x[1], x[0], Program.rand));
                 // Formatted by shape, scale, location
                 var lowerBounds = CreateVector.DenseOfArray(new double[] { -2, Math.Min(-3 * initialScale, 3 * initialScale), Math.Min(-3 * initialLocation, 3 * initialLocation) });
                 var upperBounds = CreateVector.DenseOfArray(new double[] { 2, Math.Max(-3 * initialScale, 3 * initialScale), Math.Max(-3 * initialLocation, 3 * initialLocation) });
                 var initialGuess = CreateVector.DenseOfArray(new double[] { initialShape, initialScale, initialLocation });
 
-                var min = FindMinimum.OfFunctionConstrained(objectiveFunction, lowerBounds, upperBounds, initialGuess);
+                var min = FindMinimum.OfFunctionConstrained(objectiveFunc, lowerBounds, upperBounds, initialGuess);
                 return new GEV(min[2], min[1], min[0], Program.rand);
             }
 
@@ -215,16 +219,74 @@ namespace Thesis
             double scaleGuess = Math.Sqrt(6 * Statistics.Variance(observations)) / Math.PI;
             double locationGuess = Statistics.Median(observations) + scaleGuess * Math.Log(Math.Log(2));
             double shapeGuess = 0.5; // Use Pickands estimator here in the actual model
-            GEV bestModel = OptimizeBFGS(shapeGuess, scaleGuess, locationGuess);
+            Func<Vector<double>, double> objectiveFunction = x => FitnessExactModel(new GEV(x[2], x[1], x[0], Program.rand));
+            GEV bestModelMonteCarlo = OptimizeBFGS(objectiveFunction, shapeGuess, scaleGuess, locationGuess);
 
-            output.WriteLine($"Model: shape{bestModel.shape} location{bestModel.location} scale {bestModel.scale}");
+            output.WriteLine($"MC Exact GEV Model: shape{bestModelMonteCarlo.shape} location{bestModelMonteCarlo.location} scale {bestModelMonteCarlo.scale}");
+
+            double[] sample = new double[sampleSize];
+            dist.Samples(sample); // Take a sample from dist
+            Sorting.Sort(sample);
+            // Report the sample min and max
+            output.WriteLine($"Sample minimum: {sample[0]}  Sample maximum: {sample[sample.Length - 1]}");
+            //var sorter = new List<double>(sample);
+            //sorter.Sort();
+            //sample = sorter.ToArray(); 
+            var pickandsApprox = new PickandsApproximation(sample); // Construct a Pickands tail approx from the sample
+            
+            // Bootstrap observations of the distribution of the sample minimum from the Pickands model
+            double[] approxObservations = new double[observations.Length];
+            for (int i = 0; i < approxObservations.Length; i++)
+            {
+                double max = double.NegativeInfinity;
+                for (int j = 0; j < sampleSize; j++)
+                {
+                    max = Math.Max(max, pickandsApprox.Sample());
+                }
+                approxObservations[i] = max;
+            }
+
+            ContinuousDistribution approxECDF = ContinuousDistribution.ECDF(approxObservations); // ECDF of the bootstrapped observations
+            scaleGuess = Math.Sqrt(6 * Statistics.Variance(approxObservations)) / Math.PI;
+            locationGuess = Statistics.Median(approxObservations) + scaleGuess * Math.Log(Math.Log(2));
+            GEV estimatedGEVUnfitted = new GEV(location: locationGuess, scale: scaleGuess, shape: pickandsApprox.c); // Using the Pickands estimator for shape
+
+            output.WriteLine($"UnfittedGEVModel: shape{estimatedGEVUnfitted.shape} location{estimatedGEVUnfitted.location} scale {estimatedGEVUnfitted.scale}");
+
+            // Fit the model to the data drawn from the Pickands model
+            double FitnessApproxModel(GEV model)
+            {
+                double val = 1;
+                for (int i = 0; i < observations.Length; i++)
+                {
+                    val += Math.Abs(model.CumulativeDistribution(approxObservations[i]) - approxECDF.CumulativeDensity(approxObservations[i]));
+                }
+                return val;
+            }
+
+            objectiveFunction = x => FitnessApproxModel(new GEV(x[2], x[1], x[0], Program.rand));
+            GEV fittedApproxModel = OptimizeBFGS(objectiveFunction, pickandsApprox.c, scaleGuess, locationGuess);
+
+            output.WriteLine($"FittedGEVModel: shape{fittedApproxModel.shape} location{fittedApproxModel.location} scale {fittedApproxModel.scale}");
+
             double[] quantiles = Interpolation.Linspace(0.000001, 0.999999, 2000);
-            for (int i = 0; i < quantiles.Length; i++) { quantiles[i] = bestModel.Quantile(quantiles[i]); }
-
-            output.WriteLine("Abscissas,Monte Carlo ECDF,GEV CDF");
+            for (int i = 0; i < quantiles.Length; i++) { quantiles[i] = Statistics.Quantile(observations, quantiles[i]); }
+            
+            output.WriteLine("Abscissas,Monte Carlo ECDF,GEV Fit of MC ECDF,Estimated ECDF,Estimated GEV Unfitted,Estimated GEV Fitted,,ErrDistExactAbscissas,ErrDistExactValues,ErrDistModelAbscissas,ErrDistModelValues");
             for (int i = 0; i < quantiles.Length; i++)
             {
-                output.WriteLine($"{quantiles[i]},{MonteCarloDistributionOfTheMaximum.CumulativeDensity(quantiles[i])},{bestModel.CumulativeDistribution(quantiles[i])}");
+                output.WriteLine($"{quantiles[i]}," +
+                    $"{MonteCarloDistributionOfTheMaximum.CumulativeDensity(quantiles[i])}," +
+                    $"{bestModelMonteCarlo.CumulativeDistribution(quantiles[i])}," +
+                    $"{approxECDF.CumulativeDensity(quantiles[i])}," +
+                    $"{estimatedGEVUnfitted.CumulativeDistribution(quantiles[i])}," +
+                    $"{fittedApproxModel.CumulativeDistribution(quantiles[i])}," +
+                    $"," + // Space
+                    $"{quantiles[i] - upperQuantile}," +
+                    $"{MonteCarloDistributionOfTheMaximum.CumulativeDensity(quantiles[i])}," +
+                    //$"{quantiles[i] - sample[sample.Length - 1]}," +
+                    $"{quantiles[i] - fittedApproxModel.location}," +
+                    $"{fittedApproxModel.CumulativeDistribution(quantiles[i])}");
             }
             // Clean up
             output.Dispose();
@@ -250,7 +312,7 @@ namespace Thesis
 
             raw = new double[10000];
             // Generate new data from the approximation
-            newVersion.Samples(raw, Program.rand);
+            newVersion.Samples(raw);
             var resample = ContinuousDistribution.ECDF(raw, Program.rand);
 
             // Make the table and write it to a file

@@ -264,8 +264,9 @@ namespace Thesis
         public int transitionIndex;
         public double transitionAbscissa;
         List<double> data;
+        Random rand;
 
-        public PickandsApproximation(IList<double> data)
+        public PickandsApproximation(IList<double> data, Random rand = null)
         {
             if (data.Count < 30) throw new ArgumentException("Insufficient data count for Pickands Balkema De Haan.");
             this.data = new List<double>(data);
@@ -273,6 +274,8 @@ namespace Thesis
             PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(this.data, out a, out c, out transitionIndex); // Write m to transitionIndex
             transitionIndex = this.data.Count - 4 * transitionIndex; // Convert from m to the actual transitionIndex
             transitionAbscissa = this.data[transitionIndex]; // m is guaranteed to be > 0
+            if (rand == null) rand = Program.rand;
+            this.rand = rand;
         }
         
         public double CDF(double x)
@@ -306,12 +309,12 @@ namespace Thesis
             return data[(int)(q * data.Count)];
         }
 
-        public double Sample(Random rand)
+        public double Sample()
         {
             return Quantile(rand.NextDouble());
         }
 
-        public void Samples(double[] array, Random rand)
+        public void Samples(double[] array)
         {
             for (int i = 0; i < array.Length; i++)
             {
