@@ -37,18 +37,20 @@ namespace Thesis
 
         public static void TestGEV()
         {
-            Logger output = new Logger("GEV Test.csv");
-            IContinuousDistribution dist = new ChiSquared(4, Program.rand);
-            //IContinuousDistribution dist = new Exponential(2, Program.rand);
-            const int sampleSize = 300;
+            Logger output = new Logger("GEV Test A.csv");
+            Logger output2 = new Logger("GEV Test B.csv");
+            ChiSquared dist = new ChiSquared(4, Program.rand);
+            //Exponential dist = new Exponential(2, Program.rand);
+            //var dist = new Gamma(2, 2, Program.rand);
+            const int sampleSize = 50;
             
-            // Report the sample 1-1/e quantile
-            double upperQuantile = ((ChiSquared)dist).InverseCumulativeDistribution(1 - 1.0 / sampleSize);
-            double lowerQuantile = ((ChiSquared)dist).InverseCumulativeDistribution(1.0 / sampleSize);
+            // Report the distribution 1-1/e quantile
+            double upperQuantile = dist.InverseCumulativeDistribution(1 - 1.0 / sampleSize);
+            double lowerQuantile = dist.InverseCumulativeDistribution(1.0 / sampleSize);
             output.WriteLine($"1-1/samplesize quantile: {upperQuantile}");
             output.WriteLine($"1/samplesize quantile: {lowerQuantile}");
 
-            // Monte Carlo for the distribution of the sample minimum
+            // Monte Carlo for the true distribution of the sample maximum
             double[] observations = new double[10000];
             
             for (int i = 0; i < observations.Length; i++)
@@ -83,16 +85,16 @@ namespace Thesis
 
             double FitnessExactModel(GEV model)
             {
-                double val = 1;
+                double val = 0;
                 for (int i = 0; i < observations.Length; i++)
                 {
-                    val += Math.Abs(model.CumulativeDistribution(observations[i]) - MonteCarloDistributionOfTheMaximum.CumulativeDensity(observations[i]));
+                    val += Math.Pow(model.CumulativeDistribution(observations[i]) - MonteCarloDistributionOfTheMaximum.CumulativeDensity(observations[i]), 2);
                 }
                 return val;
             }
             
-            double medianEst = Statistics.Median(observations);
-            double varianceEst = Statistics.VarianceEstimate(observations);
+            //double medianEst = Statistics.Median(observations);
+            //double varianceEst = Statistics.VarianceEstimate(observations);
 
             /*
             GEV Optimize(double startingval, out double fitness)
@@ -216,7 +218,7 @@ namespace Thesis
             Console.WriteLine($"Zero model: shape: {zeroModel.shape} scale: {zeroModel.scale} location: {zeroModel.location} fitness: {fitZero}");
             */
 
-            double scaleGuess = Math.Sqrt(6 * Statistics.Variance(observations)) / Math.PI;
+            double scaleGuess = Math.Sqrt(6 * Statistics.VarianceEstimate(observations)) / Math.PI;
             double locationGuess = Statistics.Median(observations) + scaleGuess * Math.Log(Math.Log(2));
             double shapeGuess = 0.5; // Use Pickands estimator here in the actual model
             Func<Vector<double>, double> objectiveFunction = x => FitnessExactModel(new GEV(x[2], x[1], x[0], Program.rand));
@@ -228,13 +230,13 @@ namespace Thesis
             dist.Samples(sample); // Take a sample from dist
             Sorting.Sort(sample);
             // Report the sample min and max
-            output.WriteLine($"Sample minimum: {sample[0]}  Sample maximum: {sample[sample.Length - 1]}");
+            output.WriteLine($"Sample maximum: {sample[sample.Length - 1]}");
             //var sorter = new List<double>(sample);
             //sorter.Sort();
             //sample = sorter.ToArray(); 
             var pickandsApprox = new PickandsApproximation(sample); // Construct a Pickands tail approx from the sample
             
-            // Bootstrap observations of the distribution of the sample minimum from the Pickands model
+            // Bootstrap observations of the distribution of the sample maximum from the Pickands model
             double[] approxObservations = new double[observations.Length];
             for (int i = 0; i < approxObservations.Length; i++)
             {
@@ -256,10 +258,10 @@ namespace Thesis
             // Fit the model to the data drawn from the Pickands model
             double FitnessApproxModel(GEV model)
             {
-                double val = 1;
-                for (int i = 0; i < observations.Length; i++)
+                double val = 0;
+                for (int i = 0; i < approxObservations.Length; i++)
                 {
-                    val += Math.Abs(model.CumulativeDistribution(approxObservations[i]) - approxECDF.CumulativeDensity(approxObservations[i]));
+                    val += Math.Pow(model.CumulativeDistribution(approxObservations[i]) - approxECDF.CumulativeDensity(approxObservations[i]), 2);
                 }
                 return val;
             }
@@ -269,27 +271,40 @@ namespace Thesis
 
             output.WriteLine($"FittedGEVModel: shape{fittedApproxModel.shape} location{fittedApproxModel.location} scale {fittedApproxModel.scale}");
 
-            double[] quantiles = Interpolation.Linspace(0.000001, 0.999999, 2000);
-            for (int i = 0; i < quantiles.Length; i++) { quantiles[i] = Statistics.Quantile(observations, quantiles[i]); }
+            double[] proportions = Interpolation.Linspace(0.000001, 0.999999, 2000);
+            double[] observationQuantiles = Interpolation.Linspace(0.000001, 0.999999, 2000);
+            for (int i = 0; i < observationQuantiles.Length; i++) { observationQuantiles[i] = Statistics.Quantile(observations, observationQuantiles[i]); }
             
             output.WriteLine("Abscissas,Monte Carlo ECDF,GEV Fit of MC ECDF,Estimated ECDF,Estimated GEV Unfitted,Estimated GEV Fitted,,ErrDistExactAbscissas,ErrDistExactValues,ErrDistModelAbscissas,ErrDistModelValues");
-            for (int i = 0; i < quantiles.Length; i++)
+            for (int i = 0; i < observationQuantiles.Length; i++)
             {
-                output.WriteLine($"{quantiles[i]}," +
-                    $"{MonteCarloDistributionOfTheMaximum.CumulativeDensity(quantiles[i])}," +
-                    $"{bestModelMonteCarlo.CumulativeDistribution(quantiles[i])}," +
-                    $"{approxECDF.CumulativeDensity(quantiles[i])}," +
-                    $"{estimatedGEVUnfitted.CumulativeDistribution(quantiles[i])}," +
-                    $"{fittedApproxModel.CumulativeDistribution(quantiles[i])}," +
+                output.WriteLine($"{observationQuantiles[i]}," +
+                    $"{MonteCarloDistributionOfTheMaximum.CumulativeDensity(observationQuantiles[i])}," +
+                    $"{bestModelMonteCarlo.CumulativeDistribution(observationQuantiles[i])}," +
+                    $"{approxECDF.CumulativeDensity(observationQuantiles[i])}," +
+                    $"{estimatedGEVUnfitted.CumulativeDistribution(observationQuantiles[i])}," +
+                    $"{fittedApproxModel.CumulativeDistribution(observationQuantiles[i])}," +
                     $"," + // Space
-                    $"{quantiles[i] - upperQuantile}," +
-                    $"{MonteCarloDistributionOfTheMaximum.CumulativeDensity(quantiles[i])}," +
+                    $"{observationQuantiles[i] - upperQuantile}," +
+                    $"{MonteCarloDistributionOfTheMaximum.CumulativeDensity(observationQuantiles[i])}," +
                     //$"{quantiles[i] - sample[sample.Length - 1]}," +
-                    $"{quantiles[i] - fittedApproxModel.location}," +
-                    $"{fittedApproxModel.CumulativeDistribution(quantiles[i])}");
+                    $"{fittedApproxModel.Quantile(proportions[i]) - fittedApproxModel.location}," +
+                    $"{proportions[i]}");
             }
+
+            double[] distributionQuantiles = Interpolation.Linspace(0.000001, 0.999999, 2000);
+            for (int i = 0; i < distributionQuantiles.Length; i++) { distributionQuantiles[i] = dist.InverseCumulativeDistribution(distributionQuantiles[i]); }
+            output2.WriteLine("Abscissas,True CDF,Pickands Estimate");
+            for (int i = 0; i < distributionQuantiles.Length; i++)
+            {
+                output2.WriteLine($"{distributionQuantiles[i]}," +
+                    $"{dist.CumulativeDistribution(distributionQuantiles[i])}," +
+                    $"{pickandsApprox.CDF(distributionQuantiles[i])}");
+            }
+
             // Clean up
             output.Dispose();
+            output2.Dispose();
             //table.Dispose();
         }
 
