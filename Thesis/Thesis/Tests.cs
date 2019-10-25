@@ -39,8 +39,8 @@ namespace Thesis
         {
             Logger output = new Logger("GEV Test A.csv");
             Logger output2 = new Logger("GEV Test B.csv");
-            ChiSquared dist = new ChiSquared(4, Program.rand);
-            //Exponential dist = new Exponential(2, Program.rand);
+            var dist = new ChiSquared(4, Program.rand);
+            //var dist = new Exponential(2, Program.rand);
             //var dist = new Gamma(2, 2, Program.rand);
             const int sampleSize = 50;
             

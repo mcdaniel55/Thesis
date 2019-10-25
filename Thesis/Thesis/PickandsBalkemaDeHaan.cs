@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace Thesis
 {
@@ -144,6 +146,28 @@ namespace Thesis
             m = bestFitM;
             EstimateParams(data, bestFitM, out c, out a);
         }
+        /*
+        private static void ApproximateExcessDistributionParametersBFGS(IList<double> data, out double a, out double c, out double u)
+        {
+            double Fitness(Vector<double> input)
+            { // Input is assumed to be (a,c,u)
+                double sum = 0;
+                double weightSum = 0;
+                for (int i = 0; i < 4 * l; i++)
+                {
+                    // The largest deviation should occur at one of the step points
+                    double GHat = TailCDF(data[data.Count - i] - data[data.Count - 4 * l], a, c);
+                    double deviation = (4.0 * l - i) / (4.0 * l - 1) - GHat;
+                    double weight = Weight(i);
+                    sum += deviation * deviation * weight;
+                    weightSum += weight;
+                }
+                return sum / weightSum;
+                return DeviationSupNorm(data, )
+            }
+
+            FindMinimum.OfFunctionConstrained()
+        }*/
 
         /// <summary> An optimization for finding the best m, a, and c values, which is not designed for performance </summary>
         private static void ApproximateExcessDistributionParametersSlow(IList<double> data, out double a, out double c, out int m)
@@ -261,19 +285,27 @@ namespace Thesis
     public class PickandsApproximation
     {
         public double a, c; // Parameters, with c corresponding to the gamma or xi parameter of the associated GEV distribution
-        public int transitionIndex;
+        public double transitionProportion;
         public double transitionAbscissa;
         List<double> data;
         Random rand;
 
-        public PickandsApproximation(IList<double> data, Random rand = null)
+        public PickandsApproximation(IList<double> data, bool useBFGS = false, Random rand = null)
         {
             if (data.Count < 30) throw new ArgumentException("Insufficient data count for Pickands Balkema De Haan.");
             this.data = new List<double>(data);
             this.data.Sort();
-            PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(this.data, out a, out c, out transitionIndex); // Write m to transitionIndex
-            transitionIndex = this.data.Count - 4 * transitionIndex; // Convert from m to the actual transitionIndex
-            transitionAbscissa = this.data[transitionIndex]; // m is guaranteed to be > 0
+            if (useBFGS)
+            {
+
+            }
+            else
+            {
+                int m;
+                PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(this.data, out a, out c, out m); // Write m to transitionIndex
+                transitionProportion = (this.data.Count - 4 * m + 1.0) / data.Count;
+                transitionAbscissa = this.data[this.data.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
+            }
             if (rand == null) rand = Program.rand;
             this.rand = rand;
         }
@@ -290,19 +322,19 @@ namespace Thesis
             }
             // Pickands' tail case
             x -= transitionAbscissa;
-            double offset = (transitionIndex + 1.0) / data.Count;
-            double scale = 1 - offset;
-            return scale * PickandsBalkemaDeHaan.TailCDF(x, a, c) + offset;
+            //double offset = (transitionIndex + 1.0) / data.Count;
+            double scale = 1 - transitionProportion;
+            return scale * PickandsBalkemaDeHaan.TailCDF(x, a, c) + transitionProportion;
         }
 
         public double Quantile(double q)
         {
-            double offset = (transitionIndex + 1.0) / data.Count;
-            if (q > offset) // Pickands approximation case
+            //double offset = (transitionIndex + 1.0) / data.Count;
+            if (q > transitionProportion) // Pickands approximation case
             {
                 // Renormalize q for the tail QF
-                double scale = 1 - offset;
-                q = (q - offset) / scale;
+                double scale = 1 - transitionProportion;
+                q = (q - transitionProportion) / scale;
                 return transitionAbscissa + PickandsBalkemaDeHaan.TailQuantileFunction(q, a, c);
             }
             // ECDF case
