@@ -146,28 +146,54 @@ namespace Thesis
             m = bestFitM;
             EstimateParams(data, bestFitM, out c, out a);
         }
-        /*
-        private static void ApproximateExcessDistributionParametersBFGS(IList<double> data, out double a, out double c, out double u)
+        
+        // Data must be sorted before using this method
+        internal static void ApproximateExcessDistributionParametersBFGS(List<double> data, out double a, out double c, out double u)
         {
-            double Fitness(Vector<double> input)
-            { // Input is assumed to be (a,c,u)
+            double Fitness(Vector<double> input) // Input is assumed to be (a,c,u)
+            { 
                 double sum = 0;
-                double weightSum = 0;
-                for (int i = 0; i < 4 * l; i++)
+                //double weightsum = 0;
+
+                // Compute the index of the next largest element that is at or after u in the data
+                int nextLargestIndex = data.BinarySearch(input[2]);
+                if (nextLargestIndex < 0) nextLargestIndex = ~nextLargestIndex + 1;
+                int knotCount = data.Count - nextLargestIndex;
+
+                //for (int i = nextLargestIndex; i < data.Count; i++)
+                for (int i = 0; i < knotCount; i++)
                 {
                     // The largest deviation should occur at one of the step points
-                    double GHat = TailCDF(data[data.Count - i] - data[data.Count - 4 * l], a, c);
-                    double deviation = (4.0 * l - i) / (4.0 * l - 1) - GHat;
-                    double weight = Weight(i);
-                    sum += deviation * deviation * weight;
-                    weightSum += weight;
+                    double GHat = TailCDF(data[nextLargestIndex + i] - input[2], input[0], input[1]); // Args: x - u, a, c
+                    double residual = i * 1.0 / knotCount - GHat; // Deviation from the top of the step at x_i
+                    //double weight = knotCount - i + 1;
+                    sum += residual * residual;
+                    //sum += Math.Abs(residual) * weight;
+                    //weightsum += weight;
                 }
-                return sum / weightSum;
-                return DeviationSupNorm(data, )
+                return sum / knotCount; // Consider dividing by n or n^2 here
+                //return sum / (weightsum * knotCount);
             }
 
-            FindMinimum.OfFunctionConstrained()
-        }*/
+            // Get Pickands' estimates of a and c for m = n/16 + 1 as starting guesses, consistent with Z4M at the 75th percentile
+            double pickandsEstA, pickandsEstC;
+            EstimateParams(data, data.Count / 16 + 1, out pickandsEstC, out pickandsEstA);
+            double lowerBoundA = 0;
+            double upperBoundA = 3 * pickandsEstA + 1;
+            double lowerBoundC = Math.Min(3 * pickandsEstC, -3 * pickandsEstC) - 1;
+            double upperBoundC = -lowerBoundC;
+            // Initial guess for u is at data[(3/4)n]
+
+            var optimum = FindMinimum.OfFunctionConstrained(Fitness,
+                lowerBound: CreateVector.DenseOfArray(new double[] { lowerBoundA, lowerBoundC, data[0] }),
+                upperBound: CreateVector.DenseOfArray(new double[] { upperBoundA, upperBoundC, data[data.Count - 3] }),
+                initialGuess: CreateVector.DenseOfArray(new double[] { pickandsEstA, pickandsEstC, data[data.Count * 3 / 4] }));
+
+            // Return parameters
+            a = optimum[0];
+            c = optimum[1];
+            u = optimum[2];
+        }
 
         /// <summary> An optimization for finding the best m, a, and c values, which is not designed for performance </summary>
         private static void ApproximateExcessDistributionParametersSlow(IList<double> data, out double a, out double c, out int m)
@@ -287,24 +313,28 @@ namespace Thesis
         public double a, c; // Parameters, with c corresponding to the gamma or xi parameter of the associated GEV distribution
         public double transitionProportion;
         public double transitionAbscissa;
-        List<double> data;
+        List<double> sortedData;
         Random rand;
 
         public PickandsApproximation(IList<double> data, bool useBFGS = false, Random rand = null)
         {
             if (data.Count < 30) throw new ArgumentException("Insufficient data count for Pickands Balkema De Haan.");
-            this.data = new List<double>(data);
-            this.data.Sort();
+            sortedData = new List<double>(data);
+            sortedData.Sort();
             if (useBFGS)
             {
-
+                PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersBFGS(sortedData, out a, out c, out transitionAbscissa);
+                // Compute the index of the closest element that is at or before u in the data
+                int transitionIndex = sortedData.BinarySearch(transitionAbscissa);
+                if (transitionIndex < 0) transitionIndex = ~transitionIndex;
+                transitionProportion = transitionIndex * 1.0 / sortedData.Count;
             }
             else
             {
                 int m;
-                PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(this.data, out a, out c, out m); // Write m to transitionIndex
-                transitionProportion = (this.data.Count - 4 * m + 1.0) / data.Count;
-                transitionAbscissa = this.data[this.data.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
+                PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(sortedData, out a, out c, out m); // Write m to transitionIndex
+                transitionProportion = (sortedData.Count - 4 * m + 1.0) / data.Count;
+                transitionAbscissa = sortedData[sortedData.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
             }
             if (rand == null) rand = Program.rand;
             this.rand = rand;
@@ -315,10 +345,10 @@ namespace Thesis
             if (x <= transitionAbscissa) // ECDF Case
             {
                 // Fast search for which elements to interpolate between
-                int idx = data.BinarySearch(x);
+                int idx = sortedData.BinarySearch(x);
                 if (idx < 0) idx = ~idx;
                 else idx++; // Left-continuity here
-                return idx * 1.0 / data.Count;
+                return idx * 1.0 / sortedData.Count;
             }
             // Pickands' tail case
             x -= transitionAbscissa;
@@ -338,7 +368,7 @@ namespace Thesis
                 return transitionAbscissa + PickandsBalkemaDeHaan.TailQuantileFunction(q, a, c);
             }
             // ECDF case
-            return data[(int)(q * data.Count)];
+            return sortedData[(int)(q * sortedData.Count)];
         }
 
         public double Sample()

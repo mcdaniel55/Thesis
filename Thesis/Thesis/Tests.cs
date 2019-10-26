@@ -39,10 +39,11 @@ namespace Thesis
         {
             Logger output = new Logger("GEV Test A.csv");
             Logger output2 = new Logger("GEV Test B.csv");
-            var dist = new ChiSquared(4, Program.rand);
+            //var dist = new ChiSquared(4, Program.rand);
+            var dist = new Beta(2, 2);
             //var dist = new Exponential(2, Program.rand);
             //var dist = new Gamma(2, 2, Program.rand);
-            const int sampleSize = 50;
+            const int sampleSize = 300;
             
             // Report the distribution 1-1/e quantile
             double upperQuantile = dist.InverseCumulativeDistribution(1 - 1.0 / sampleSize);
@@ -67,6 +68,8 @@ namespace Thesis
             ContinuousDistribution MonteCarloDistributionOfTheMaximum = ContinuousDistribution.ECDF(observations, Program.rand);
 
             // --- Find the best fit GEV distribution for this dataset ---
+
+            #region Old code
             /*
             // Compute location and scale parameter estimates for a given shape parameter Xi using the median and variance
             void EstimateParameters(double shape, double median, double variance, out double location, out double scale)
@@ -82,6 +85,7 @@ namespace Thesis
                 if (double.IsNaN(scale)) scale = Math.Sqrt(6 * variance) / Math.PI;
                 location = median - scale * (Math.Pow(Math.Log(2), -shape) - 1) / shape;
             }*/
+            #endregion
 
             double FitnessExactModel(GEV model)
             {
@@ -92,7 +96,8 @@ namespace Thesis
                 }
                 return val;
             }
-            
+
+            #region Old code
             //double medianEst = Statistics.Median(observations);
             //double varianceEst = Statistics.VarianceEstimate(observations);
 
@@ -187,16 +192,20 @@ namespace Thesis
                 return bestSoFar;
             }
             */
+            #endregion
+
             GEV OptimizeBFGS(Func<Vector<double>,double> objectiveFunc, double initialShape, double initialScale, double initialLocation)
             {
                 // Formatted by shape, scale, location
-                var lowerBounds = CreateVector.DenseOfArray(new double[] { -2, Math.Min(-3 * initialScale, 3 * initialScale), Math.Min(-3 * initialLocation, 3 * initialLocation) });
-                var upperBounds = CreateVector.DenseOfArray(new double[] { 2, Math.Max(-3 * initialScale, 3 * initialScale), Math.Max(-3 * initialLocation, 3 * initialLocation) });
+                var lowerBounds = CreateVector.DenseOfArray(new double[] { -10, Math.Min(-3 * initialScale, 3 * initialScale), Math.Min(-3 * initialLocation, 3 * initialLocation) });
+                var upperBounds = CreateVector.DenseOfArray(new double[] { 10, Math.Max(-3 * initialScale, 3 * initialScale), Math.Max(-3 * initialLocation, 3 * initialLocation) });
                 var initialGuess = CreateVector.DenseOfArray(new double[] { initialShape, initialScale, initialLocation });
 
                 var min = FindMinimum.OfFunctionConstrained(objectiveFunc, lowerBounds, upperBounds, initialGuess);
                 return new GEV(min[2], min[1], min[0], Program.rand);
             }
+
+            #region Old code
 
             // Optimize for Xi
             /*double fitNeg, fitZero, fitPos;
@@ -217,6 +226,7 @@ namespace Thesis
             Console.WriteLine($"Best Positive model: shape: {bestPos.shape} scale: {bestPos.scale} location: {bestPos.location} fitness: {fitPos}");
             Console.WriteLine($"Zero model: shape: {zeroModel.shape} scale: {zeroModel.scale} location: {zeroModel.location} fitness: {fitZero}");
             */
+            #endregion
 
             double scaleGuess = Math.Sqrt(6 * Statistics.VarianceEstimate(observations)) / Math.PI;
             double locationGuess = Statistics.Median(observations) + scaleGuess * Math.Log(Math.Log(2));
@@ -234,7 +244,7 @@ namespace Thesis
             //var sorter = new List<double>(sample);
             //sorter.Sort();
             //sample = sorter.ToArray(); 
-            var pickandsApprox = new PickandsApproximation(sample); // Construct a Pickands tail approx from the sample
+            var pickandsApprox = new PickandsApproximation(sample, useBFGS: true); // Construct a Pickands tail approx from the sample
             
             // Bootstrap observations of the distribution of the sample maximum from the Pickands model
             double[] approxObservations = new double[observations.Length];
