@@ -246,7 +246,7 @@ namespace Thesis
             //var sorter = new List<double>(sample);
             //sorter.Sort();
             //sample = sorter.ToArray(); 
-            var pickandsApprox = new PickandsApproximation(sample, useBFGS: true); // Construct a Pickands tail approx from the sample
+            var pickandsApprox = new PickandsApproximation(sample, method: PickandsApproximation.FittingMethod.BFGS_MSE); // Construct a Pickands tail approx from the sample
             
             // Bootstrap observations of the distribution of the sample maximum from the Pickands model
             double[] approxObservations = new double[observations.Length];

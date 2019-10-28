@@ -5,34 +5,34 @@ namespace Thesis
 {
     static class Statistics
     {
-        public static double Minimum(double[] data)
+        public static double Minimum(IList<double> data)
         {
             double min = data[0];
-            for (int i = 1; i < data.Length; i++) { min = Math.Min(min, data[i]); }
+            for (int i = 1; i < data.Count; i++) { min = Math.Min(min, data[i]); }
             return min;
         }
 
-        public static double Mean(double[] data)
+        public static double Mean(IList<double> data)
         {
             double sum = data[0];
-            for (int i = 1; i < data.Length; i++) { sum += data[i]; }
-            return sum / data.Length;
+            for (int i = 1; i < data.Count; i++) { sum += data[i]; }
+            return sum / data.Count;
         }
 
-        public static double VarianceEstimate(double[] sample)
+        public static double VarianceEstimate(IList<double> sample)
         {
             double mean = Mean(sample);
             double sum = 0;
-            for (int i = 0; i < sample.Length; i++) { sum += Math.Pow(sample[i] - mean, 2); }
-            return sum / (sample.Length - 1);
+            for (int i = 0; i < sample.Count; i++) { sum += Math.Pow(sample[i] - mean, 2); }
+            return sum / (sample.Count - 1);
         }
 
-        public static double Variance(double[] data)
+        public static double Variance(IList<double> data)
         {
             double mean = Mean(data);
             double sum = 0;
-            for (int i = 0; i < data.Length; i++) { sum += Math.Pow(data[i] - mean, 2); }
-            return sum / data.Length;
+            for (int i = 0; i < data.Count; i++) { sum += Math.Pow(data[i] - mean, 2); }
+            return sum / data.Count;
         }
 
         public static double Quantile(double[] data, double q)
@@ -47,12 +47,12 @@ namespace Thesis
             return Interpolation.Lerp(idx, data[idx], idx + 1, data[idx + 1], product);
         }
 
-        public static double MeanOfLowerHalf(double[] data)
+        public static double MeanOfLowerHalf(IList<double> data)
         {
             double median = Median(data);
             double sum = 0;
             int count = 0;
-            for (int i = 0; i < data.Length; i++)
+            for (int i = 0; i < data.Count; i++)
             {
                 if (data[i] < median)
                 {
@@ -63,10 +63,10 @@ namespace Thesis
             return sum / count;
         }
 
-        public static double Median(double[] data)
+        public static double Median(IList<double> data)
         {
-            if (data.Length % 2 == 1) return data[data.Length / 2];
-            return (data[data.Length / 2 - 1] + data[data.Length / 2]) / 2;
+            if (data.Count % 2 == 1) return data[data.Count / 2];
+            return (data[data.Count / 2 - 1] + data[data.Count / 2]) / 2;
         }
     }
 }

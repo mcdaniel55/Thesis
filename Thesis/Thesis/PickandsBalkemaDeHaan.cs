@@ -176,12 +176,12 @@ namespace Thesis
             }
 
             // Get Pickands' estimates of a and c for m = n/16 + 1 as starting guesses, consistent with Z4M at the 75th percentile
-            double pickandsEstA, pickandsEstC;
-            EstimateParams(data, data.Count / 16 + 1, out pickandsEstC, out pickandsEstA);
+            //double pickandsEstA, pickandsEstC;
+            EstimateParams(data, data.Count / 16 + 1, out double pickandsEstC, out double pickandsEstA);
             double lowerBoundA = 0;
             double upperBoundA = 3 * pickandsEstA + 1;
             double lowerBoundC = Math.Min(3 * pickandsEstC, -3 * pickandsEstC) - 1;
-            double upperBoundC = -lowerBoundC;
+            double upperBoundC = 0; //-lowerBoundC;
             // Initial guess for u is at data[(3/4)n]
 
             var optimum = FindMinimum.OfFunctionConstrained(Fitness,
@@ -195,8 +195,107 @@ namespace Thesis
             u = optimum[2];
         }
 
+        internal static void ApproximateExcessDistributionParametersMoments(IList<double> data, out double a, out double c, out int m)
+        {
+            a = c = m = 0;
+            void Moments(int k, out double moment1, out double moment2)
+            {
+                double sum1 = 0;
+                double sum2 = 0;
+                for (int i = 0; i < k; i++)
+                {
+                    double deviation = Math.Log(data[data.Count - i - 1]) - Math.Log(data[data.Count-1]);
+                    sum1 += deviation;
+                    sum2 += deviation * deviation;
+                }
+                moment1 = sum1 / k;
+                moment2 = sum2 / k;
+            }
+
+            double GammaHat(int k)
+            {
+                Moments(k, out double m1, out double m2);
+                return (m2 - 2 * m1 * m1) / (2 * (m2 - m1 * m1));
+                //sigmaHat = data[data.Count - k - 1] * m1 * (1 - gammaHat);
+            }
+            
+            double MSE(int k, double aHat, double gammaHat)
+            {
+                double sum = 0;
+                for (int i = 0; i < k; i++) // Iterating backwards, from Z1 to Zk
+                {
+                    double x = data[data.Count - i - 1];
+                    double ecdfAtX = 1 - i * 1.0 / k;
+                    double deviation = TailCDF(x, aHat, gammaHat) - ecdfAtX;
+                    sum += deviation * deviation;
+                }
+                return sum / k;
+            }
+
+            // Temp
+            List<double> gammas = new List<double>();
+            List<double> sigmas = new List<double>();
+            // ---
+
+            double bestObservedFitOverK = double.PositiveInfinity;
+            for (int k = 4; k < data.Count; k++)
+            {
+                double gammaHat = GammaHat(k);
+
+                // Find a good aHat scale parameter for this choice of k
+                double middleEst = 4 * Math.Sqrt(Statistics.VarianceEstimate(data));
+                double bestEst = middleEst;
+                double runningMin = MSE(k, bestEst, gammaHat);
+                for (int i = 0; i < 20; i++) // 10 iterations is 2-3 correct digits
+                {
+                    double delta = middleEst * Math.Pow(2, -i);
+                    double higherEstFitness = MSE(k, bestEst + delta, gammaHat);
+                    double lowerEstFitness = MSE(k, bestEst - delta, gammaHat);
+                    double fitMin = Math.Min(runningMin, Math.Min(higherEstFitness, lowerEstFitness));
+                    if (higherEstFitness == fitMin)
+                    {
+                        bestEst = bestEst + delta;
+                        runningMin = fitMin;
+                    }
+                    else if (lowerEstFitness == fitMin)
+                    {
+                        bestEst = bestEst - delta;
+                        runningMin = fitMin;
+                    }
+                }
+
+                gammas.Add(gammaHat);
+                sigmas.Add(bestEst);
+
+                if (runningMin < bestObservedFitOverK)
+                {
+                    bestObservedFitOverK = runningMin;
+                    // Write to a, c, and m
+                    m = k;
+                    a = bestEst;
+                    c = gammaHat;
+                }
+            }
+
+            // Temp
+            double z1, z2;
+            Moments(m, out z1, out z2);
+            Program.logger.WriteLine($"Gamma hat: {c}");
+            Program.logger.WriteLine($"Sigma hat: {data[data.Count - m - 1] * z1 * (1 - c)}");
+            Program.logger.WriteLine($"Gammas");
+            for (int i = 0; i < gammas.Count; i++)
+            {
+                Program.logger.WriteLine($"{gammas[i]}");
+            }
+            Program.logger.WriteLine($"Sigmas");
+            for (int i = 0; i < gammas.Count; i++)
+            {
+                Program.logger.WriteLine($"{sigmas[i]}");
+            }
+        }
+
         /// <summary> An optimization for finding the best m, a, and c values, which is not designed for performance </summary>
-        private static void ApproximateExcessDistributionParametersSlow(IList<double> data, out double a, out double c, out int m)
+        internal static void ApproximateExcessDistributionParametersSlow(IList<double> data, out double a, out double c, out int m)
         {
             // The highest level of optimization here is deciding on M
             int bestFitM = 1;
@@ -205,8 +304,8 @@ namespace Thesis
             double bestDev = double.PositiveInfinity;
             for (int i = 1; i < data.Count / 4; i++)
             {
-                double al, cl;
-                EstimateParams(data, i, out cl, out al);
+                //double al, cl;
+                EstimateParams(data, i, out double cl, out double al);
                 double deviation = OptimizeAC(i, al, cl, out al, out cl);
                 if (deviation < bestDev)
                 {
@@ -316,26 +415,38 @@ namespace Thesis
         List<double> sortedData;
         Random rand;
 
-        public PickandsApproximation(IList<double> data, bool useBFGS = false, Random rand = null)
+        public enum FittingMethod { Pickands_SupNorm, BFGS_MSE, Moments_MSE }
+
+        public PickandsApproximation(IList<double> data, FittingMethod method = FittingMethod.Pickands_SupNorm, Random rand = null)
         {
             if (data.Count < 30) throw new ArgumentException("Insufficient data count for Pickands Balkema De Haan.");
             sortedData = new List<double>(data);
             sortedData.Sort();
-            if (useBFGS)
+            int m; // Transition index
+
+            switch (method)
             {
-                PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersBFGS(sortedData, out a, out c, out transitionAbscissa);
-                // Compute the index of the closest element that is at or before u in the data
-                int transitionIndex = sortedData.BinarySearch(transitionAbscissa);
-                if (transitionIndex < 0) transitionIndex = ~transitionIndex;
-                transitionProportion = transitionIndex * 1.0 / sortedData.Count;
+                case FittingMethod.BFGS_MSE:
+                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersBFGS(sortedData, out a, out c, out transitionAbscissa);
+                    // Compute the index of the closest element that is at or before u in the data
+                    int transitionIndex = sortedData.BinarySearch(transitionAbscissa);
+                    if (transitionIndex < 0) transitionIndex = ~transitionIndex;
+                    transitionProportion = transitionIndex * 1.0 / sortedData.Count;
+                    break;
+
+                case FittingMethod.Moments_MSE:
+                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersMoments(data, out a, out c, out m);
+                    transitionProportion = (sortedData.Count - m + 1.0) / data.Count;
+                    transitionAbscissa = sortedData[sortedData.Count - m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
+                    break;
+
+                default:
+                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(sortedData, out a, out c, out m); // Write m to transitionIndex
+                    transitionProportion = (sortedData.Count - 4 * m + 1.0) / data.Count;
+                    transitionAbscissa = sortedData[sortedData.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
+                    break;
             }
-            else
-            {
-                int m;
-                PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(sortedData, out a, out c, out m); // Write m to transitionIndex
-                transitionProportion = (sortedData.Count - 4 * m + 1.0) / data.Count;
-                transitionAbscissa = sortedData[sortedData.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
-            }
+            
             if (rand == null) rand = Program.rand;
             this.rand = rand;
         }
@@ -402,9 +513,7 @@ namespace Thesis
 
             // --- Attach the tail ---
             // Estimate the tail parameters
-            int m;
-            double a, c;
-            PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(data, out a, out c, out m);
+            PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(data, out double a, out double c, out int m);
 
             // Remove the last 4m-1 CDF values so we can replace them with the tail
             abscissas.RemoveRange(abscissas.Count - 4 * m + 1, 4 * m - 1);
