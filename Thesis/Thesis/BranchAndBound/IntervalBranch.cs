@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace Thesis
+namespace Thesis.BranchAndBound
 {
-    class IntervalBranch : Branch
+    public class IntervalBranch : Branch
     {
         /// <summary> The infimum of the interval </summary>
         public double Start { get; private set; }

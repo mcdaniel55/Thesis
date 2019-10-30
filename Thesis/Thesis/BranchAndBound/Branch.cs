@@ -1,10 +1,10 @@
 ﻿using System;
 using MathNet.Numerics.Distributions;
 
-namespace Thesis
+namespace Thesis.BranchAndBound
 {
     /// <summary> Encapsulates a subset of the solution space that can be branched, and on collections of which a bounding operation can be performed </summary>
-    abstract class Branch
+    public abstract class Branch
     {
         #region Properties
         /// <summary> Keeps track of how many times the solution space was branched to produce this subset </summary>

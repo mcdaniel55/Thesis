@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Thesis.BranchAndBound
 {
-    class RectangleBranch : Branch
+    public class RectangleBranch : Branch
     {
         /// <summary> The infimum of the x values in the rectangle </summary>
         public double StartX { get; private set; }

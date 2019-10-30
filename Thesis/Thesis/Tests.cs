@@ -4,13 +4,54 @@ using System.Data;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
+using EMSOptimizationOverhaul;
+using Thesis.BranchAndBound;
 
 namespace Thesis
 {
     static class Tests
     {
         
-        // --- Temporary Tests ---
+        public static void RunEMSOptimization()
+        {
+            EMSOptimizationOverhaul.Program.ImportData(3); // Use both years of data
+            //var solutionSpace = new OneDimInterval(start: 2, end: 4, SampleSize: 100, rand: rand);
+            //var solutionSpace = new TwoDimInterval(StartX: -10, EndX: 10, StartY: -10, EndY: 10, SampleSize: 30, rand: rand);
+            var solutionSpace = new PartialEMSPlanBranch(
+                //CurrentPlanFullAmbs: new int[] { 2, 0, 1, 0, 0, 0, 1, 1, 0, 2 }, // CK, Crum, Dun, EL, FtG, KenSub, Lav, Pri, SpV, Wayne
+                FullAmbs: new int[Station.List.Count],
+                PartAmbs: new int[Station.List.Count],
+                TargetAmbulanceCount: 10,
+                rand: Program.rand);
+            var Problem = new SIDBranchAndBound(solutionSpace);
+
+            Logging.Log("Problem Initialized");
+
+            Branch[] branchSet = Problem.RunBranchAndBound(sampleSize: 300, layers: 9, confidenceLevel: 0.95, Conservative: false, CullDuplicates: true);
+
+            // Print the set of branches produced by the B&B routine
+            foreach (Branch branch in branchSet)
+            {
+                Console.WriteLine();
+
+                var plan = (PartialEMSPlanBranch)branch;
+                Console.WriteLine("Region: ");
+                for (int i = 0; i < Station.List.Count; i++)
+                {
+                    Console.Write($"Station: {Station.List[i].Name} Full: {plan.FullAmbs[i]} Part: {plan.PartAmbs[i]}");
+                }
+                //Console.WriteLine($"Best score: {branch.BestObservation}");
+                //bestObserved = Math.Min(bestObserved, branch.BestObservation);
+            }
+
+            // Do an exhaustive search of the reduced search space to find optima
+            double bestObserved = double.PositiveInfinity;
+
+            // ...
+
+            Console.WriteLine();
+            Console.WriteLine($"Best observed in all regions :{bestObserved}");
+        }
 
         public static void TestCCQuadrature1()
         {

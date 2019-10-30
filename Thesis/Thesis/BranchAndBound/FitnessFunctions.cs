@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
+using EMSOptimizationOverhaul;
 
 namespace Thesis.BranchAndBound
 {
-    class TestFunctions
+    public static class FitnessFunctions
     {
         // --- Functions of one variable ---
 
@@ -56,5 +55,21 @@ namespace Thesis.BranchAndBound
                 + Math.Pow(y - 1, 2) * (1 + Math.Pow(Math.Sin(2 * Math.PI * y), 2));
         }
 
+        // --- Functions of 20 variables ---
+        public static double EMSPlanFitness(int[] fullAmbs, int[] partAmbs)
+        {
+            // Test the plan
+            Simulation sim = new Simulation(
+                startTime: new DateTime(2016, 1, 1, 0, 0, 0), // These don't have to change when you use only 2016 or only 2017 calls
+                endTime: new DateTime(2018, 1, 1, 0, 0, 0),
+                fullAmbsToSpawn: fullAmbs,
+                partAmbsToSpawn: partAmbs,
+                centralized: true,
+                speedMPH: 24f);
+            sim.Run();
+
+            // Compute the score
+            return sim.MeanResponseTime * sim.Cost;
+        }
     }
 }

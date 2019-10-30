@@ -431,23 +431,6 @@ namespace Thesis
         /// <returns></returns>
         public static double[] ComplementsClenshawCurtisAutomatic(NegatedDistribution[] distributions, double errorTolerance = 10E-14, int maxIterations = 10)
         {
-            // Change integral to alternative form by negating the distributions
-            //distributions = NegateDistributions(distributions); // This change is local to this method // TODO: Reimplement this here
-
-            /*
-            // Compute the interval of integration
-            double maxOfMeanMinus8Stddev = distributions[0].Mean - 8 * distributions[0].StdDev;
-            double maxOfMeanPlus8Stddev = distributions[0].Mean + 8 * distributions[0].StdDev;
-            for (int i = 0; i < distributions.Length; i++)
-            {
-                maxOfMeanMinus8Stddev = Math.Max(maxOfMeanMinus8Stddev, distributions[i].Mean - 8 * distributions[i].StdDev);
-                maxOfMeanPlus8Stddev = Math.Max(maxOfMeanPlus8Stddev, distributions[i].Mean + 8 * distributions[i].StdDev);
-            }
-            // 8 standard deviations is just past the threshold beyond which normal PDFs are less than machine epsilon in double precision
-            double intervalLowerLimit = maxOfMeanMinus8Stddev;
-            double intervalUpperLimit = maxOfMeanPlus8Stddev;
-            */
-
             // Compute the interval of integration
             double intervalLowerLimit = double.PositiveInfinity;
             double intervalUpperLimit = double.NegativeInfinity;

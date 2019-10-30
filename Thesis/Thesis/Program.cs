@@ -1,6 +1,5 @@
 ﻿using System;
 using MathNet.Numerics.Random;
-using MathNet.Numerics.Distributions;
 
 namespace Thesis
 {
