@@ -13,9 +13,7 @@ namespace Thesis
         /// <summary> The range of the values contained in the interval </summary>
         private double range;
 
-        /// <summary>
-        /// Creates a new interval with the designated start and end points
-        /// </summary>
+        /// <summary> Creates a new interval with the designated start and end points </summary>
         /// <param name="start"> A finite number less than end </param>
         /// <param name="end"> A finite number greater than start </param>
         /// <param name="rand"> An override for the default random number generator </param>
@@ -28,14 +26,13 @@ namespace Thesis
 
         public override Branch[] GetBranches()
         {
-            // Bisection version
+            // Bisecting version
             double midPoint = (End + Start) / 2;
             return new Branch[] { new IntervalBranch(Start, midPoint, m_rand),
                 new IntervalBranch(midPoint, End, m_rand) };
 
 
-
-            // Trisection version
+            // Trisecting version
             /*
             double mid1 = Start + range / 3;
             double mid2 = Start + 2 * range / 3;
@@ -56,9 +53,10 @@ namespace Thesis
             */
         }
 
-        protected override double Sample()
+        protected override object RandomElement() => GetRandomElement(); // Handles return type covariance
+        public new double GetRandomElement() // Hides the base implementation
         {
-            throw new NotImplementedException();
+            return Start + range * m_rand.NextDouble();
         }
     }
 }

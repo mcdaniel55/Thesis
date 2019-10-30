@@ -18,16 +18,17 @@ namespace Thesis
 
         #region Methods
         /// <summary> Obtains a single value at random from this region </summary>
-        protected abstract double Sample();
+        public object GetRandomElement() => RandomElement(); // This should be hidden by a new method in the implementation
+        protected abstract object RandomElement(); 
 
         /// <summary> Creates a cover of this subset according to problem-specific structure </summary>
         public abstract Branch[] GetBranches();
 
-        public virtual void Samples(double[] array)
+        public virtual void EvaluateRandomElements(object[] array)
         {
             for (int i = 0; i < array.Length; i++)
             {
-                array[i] = Sample();
+                array[i] = GetRandomElement();
             }
         }
 
@@ -38,7 +39,6 @@ namespace Thesis
             m_rand = rand ?? Program.rand;
             MinimumObservedFitness = double.PositiveInfinity;
         }
-
         #endregion
     }
 }
