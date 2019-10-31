@@ -13,7 +13,7 @@ namespace Thesis.BranchAndBound
         /// <summary> The best (smallest) observation of the fitness function </summary>
         public double MinimumObservedFitness { get; private set; }
         public object BestObservedSolution { get; private set; }
-        public readonly Random m_rand;
+        public readonly Random rand;
         #endregion
 
         #region Methods
@@ -36,7 +36,7 @@ namespace Thesis.BranchAndBound
         /// provides an explicit parameterization of all subclass constructors </summary>
         protected Branch(Random rand)
         {
-            m_rand = rand ?? Program.rand;
+            this.rand = rand ?? Program.rand;
             MinimumObservedFitness = double.PositiveInfinity;
         }
         #endregion

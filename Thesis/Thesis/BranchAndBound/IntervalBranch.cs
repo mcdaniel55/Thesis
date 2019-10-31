@@ -26,8 +26,8 @@ namespace Thesis.BranchAndBound
         {
             // Bisecting version
             double midPoint = (End + Start) / 2;
-            return new Branch[] { new IntervalBranch(Start, midPoint, m_rand),
-                new IntervalBranch(midPoint, End, m_rand) };
+            return new Branch[] { new IntervalBranch(Start, midPoint, rand),
+                new IntervalBranch(midPoint, End, rand) };
 
 
             // Trisecting version
@@ -54,7 +54,7 @@ namespace Thesis.BranchAndBound
         protected override object RandomElement() => GetRandomElement(); // Handles return type covariance
         public new double GetRandomElement() // Hides the base implementation
         {
-            return Start + range * m_rand.NextDouble();
+            return Start + range * rand.NextDouble();
         }
     }
 }

@@ -28,12 +28,12 @@ namespace Thesis.BranchAndBound
                 // Add a plan with an extra full time ambulance in each possible way
                 int[] newPlanFull = (int[])FullAmbs.Clone();
                 newPlanFull[i]++;
-                regions[i] = new PartialEMSPlanBranch(newPlanFull, PartAmbs, TargetAmbulanceCount, m_rand);
+                regions[i] = new PartialEMSPlanBranch(newPlanFull, PartAmbs, TargetAmbulanceCount, rand);
 
                 // Do the same for part time
                 int[] newPlanPart = (int[])PartAmbs.Clone();
                 newPlanPart[i]++;
-                regions[i + FullAmbs.Length] = new PartialEMSPlanBranch(FullAmbs, newPlanPart, TargetAmbulanceCount, m_rand);
+                regions[i + FullAmbs.Length] = new PartialEMSPlanBranch(FullAmbs, newPlanPart, TargetAmbulanceCount, rand);
             }
 
             return regions;
@@ -52,8 +52,8 @@ namespace Thesis.BranchAndBound
             // Fill out the rest of the plan randomly
             for (int i = 0; i < TargetAmbulanceCount - CurrentAmbulancesCount; i++)
             {
-                int idx = m_rand.Next(FullAmbs.Length);
-                if (m_rand.NextDouble() < 0.5)
+                int idx = rand.Next(FullAmbs.Length);
+                if (rand.NextDouble() < 0.5)
                 { planToTestFull[idx]++; }
                 else { planToTestPart[idx]++; }
             }
@@ -71,8 +71,8 @@ namespace Thesis.BranchAndBound
             // Fill out the rest of the plan randomly
             for (int i = 0; i < TargetAmbulanceCount - CurrentAmbulancesCount; i++)
             {
-                int idx = m_rand.Next(FullAmbs.Length);
-                if (m_rand.NextDouble() < 0.5)
+                int idx = rand.Next(FullAmbs.Length);
+                if (rand.NextDouble() < 0.5)
                 { existing.Item1[idx]++; }
                 else { existing.Item2[idx]++; }
             }

@@ -14,6 +14,7 @@ namespace Thesis
         
         public static void RunEMSOptimization()
         {
+            
             EMSOptimizationOverhaul.Program.ImportData(3); // Use both years of data
             //var solutionSpace = new OneDimInterval(start: 2, end: 4, SampleSize: 100, rand: rand);
             //var solutionSpace = new TwoDimInterval(StartX: -10, EndX: 10, StartY: -10, EndY: 10, SampleSize: 30, rand: rand);
@@ -23,7 +24,7 @@ namespace Thesis
                 PartAmbs: new int[Station.List.Count],
                 TargetAmbulanceCount: 10,
                 rand: Program.rand);
-            var Problem = new SIDBranchAndBound(solutionSpace);
+            var Problem = new SIDBranchAndBound<PartialEMSPlanBranch>(solutionSpace);
 
             Logging.Log("Problem Initialized");
 
@@ -44,7 +45,7 @@ namespace Thesis
                 //bestObserved = Math.Min(bestObserved, branch.BestObservation);
             }
 
-            // Do an exhaustive search of the reduced search space to find optima
+            // Do an exhaustive search of the reduced search space to find the set of optima
             double bestObserved = double.PositiveInfinity;
 
             // ...

@@ -74,18 +74,18 @@ namespace Thesis.BranchAndBound
             // Quartering version
             return new Branch[]
             {
-                new RectangleBranch(StartX, StartX + 0.5 * rangeX, StartY, StartY + 0.5 * rangeY, m_rand), // Bottom left
-                new RectangleBranch(StartX + 0.5 * rangeX, EndX, StartY, StartY + 0.5 * rangeY, m_rand), // Bottom Right
-                new RectangleBranch(StartX, StartX + 0.5 * rangeX, StartY + 0.5 * rangeY, EndY, m_rand), // Upper Left
-                new RectangleBranch(StartX + 0.5 * rangeX, EndX, StartY + 0.5 * rangeY, EndY, m_rand), // Upper Right
+                new RectangleBranch(StartX, StartX + 0.5 * rangeX, StartY, StartY + 0.5 * rangeY, rand), // Bottom left
+                new RectangleBranch(StartX + 0.5 * rangeX, EndX, StartY, StartY + 0.5 * rangeY, rand), // Bottom Right
+                new RectangleBranch(StartX, StartX + 0.5 * rangeX, StartY + 0.5 * rangeY, EndY, rand), // Upper Left
+                new RectangleBranch(StartX + 0.5 * rangeX, EndX, StartY + 0.5 * rangeY, EndY, rand), // Upper Right
             };
         }
 
         protected override object RandomElement() => GetRandomElement(); // Handles return type covariance
         public new Tuple<double,double> GetRandomElement()
         {
-            double x = StartX + rangeX * m_rand.NextDouble();
-            double y = StartY + rangeY * m_rand.NextDouble();
+            double x = StartX + rangeX * rand.NextDouble();
+            double y = StartY + rangeY * rand.NextDouble();
             return new Tuple<double, double>(x, y);
         }
     }
