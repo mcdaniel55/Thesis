@@ -13,7 +13,7 @@ namespace Thesis.BranchAndBound
         /// <summary> The best (smallest) observation of the fitness function </summary>
         public double MinimumObservedFitness { get; private set; }
         public object BestObservedSolution { get; private set; }
-        public readonly Random rand;
+        public Random rand;
         #endregion
 
         #region Methods

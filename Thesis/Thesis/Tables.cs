@@ -569,8 +569,8 @@ namespace Thesis
         public static void ComparisonTablePairwise()
         {
             var dists = new IContinuousDistribution[] {
-                new Normal(5, 5, Program.rand),
-                new Normal(8, 4, Program.rand) };
+                new Normal(-5, 5, Program.rand),
+                new Normal(-8, 4, Program.rand) };
             ComparisonTable("Pairwise", dists, QuantileRefNormal);
         }
 

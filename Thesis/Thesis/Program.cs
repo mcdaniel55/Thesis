@@ -23,10 +23,10 @@ namespace Thesis
 
             //Tests.GenerateHardDistributionSet();
 
-            //Tables.ComparisonTablePairwise();
-            //Tables.ComparisonTableEasySet();
-            //Tables.ComparisonTableMediumSet();
-            //Tables.ComparisonTableHardSet();
+            Tables.ComparisonTablePairwise();
+            Tables.ComparisonTableEasySet();
+            Tables.ComparisonTableMediumSet();
+            Tables.ComparisonTableHardSet();
             //Tests.TestPickands();
 
             /*
@@ -35,7 +35,7 @@ namespace Thesis
             Console.WriteLine($"q = F(0.5): {q} f(0.5) {dist.Density(0.5)} Quantile(q): {dist.Quantile(q)}");
             */
 
-            Tests.TestGEV();
+            //Tests.TestGEV();
 
             Console.WriteLine("Done.");
             Console.ReadLine();

@@ -14,7 +14,6 @@ namespace Thesis
         
         public static void RunEMSOptimization()
         {
-            
             EMSOptimizationOverhaul.Program.ImportData(3); // Use both years of data
             //var solutionSpace = new OneDimInterval(start: 2, end: 4, SampleSize: 100, rand: rand);
             //var solutionSpace = new TwoDimInterval(StartX: -10, EndX: 10, StartY: -10, EndY: 10, SampleSize: 30, rand: rand);
@@ -24,7 +23,7 @@ namespace Thesis
                 PartAmbs: new int[Station.List.Count],
                 TargetAmbulanceCount: 10,
                 rand: Program.rand);
-            var Problem = new SIDBranchAndBound<PartialEMSPlanBranch>(solutionSpace);
+            var Problem = new SIDBranchAndBound<PartialEMSPlanBranch>(solutionSpace, FitnessFunctions.EMSPlanFitness, SIDBranchAndBound<PartialEMSPlanBranch>.GuidingParameter.LowerMean);
 
             Logging.Log("Problem Initialized");
 

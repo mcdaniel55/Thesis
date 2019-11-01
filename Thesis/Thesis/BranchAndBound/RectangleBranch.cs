@@ -5,26 +5,26 @@ namespace Thesis.BranchAndBound
     public class RectangleBranch : Branch
     {
         /// <summary> The infimum of the x values in the rectangle </summary>
-        public double StartX { get; private set; }
+        public readonly double StartX;
         /// <summary> The supremum of the x values in the rectangle </summary>
-        public double EndX { get; private set; }
+        public readonly double EndX;
         /// <summary> The range of the x values contained in the rectangle </summary>
-        private double rangeX;
+        private readonly double RangeX;
         /// <summary> The infimum of the y values in the rectangle </summary>
-        public double StartY { get; private set; }
+        public readonly double StartY;
         /// <summary> The supremum of the y values in the rectangle </summary>
-        public double EndY { get; private set; }
+        public readonly double EndY;
         /// <summary> The range of the y values contained in the rectangle </summary>
-        private double rangeY;
+        private readonly double RangeY;
 
         public RectangleBranch(double StartX, double EndX, double StartY, double EndY, Random rand = null) : base(rand)
         {
             this.StartX = StartX;
             this.EndX = EndX;
-            rangeX = EndX - StartX;
+            RangeX = EndX - StartX;
             this.StartY = StartY;
             this.EndY = EndY;
-            rangeY = EndY - StartY;
+            RangeY = EndY - StartY;
         }
 
         /*
@@ -74,18 +74,18 @@ namespace Thesis.BranchAndBound
             // Quartering version
             return new Branch[]
             {
-                new RectangleBranch(StartX, StartX + 0.5 * rangeX, StartY, StartY + 0.5 * rangeY, rand), // Bottom left
-                new RectangleBranch(StartX + 0.5 * rangeX, EndX, StartY, StartY + 0.5 * rangeY, rand), // Bottom Right
-                new RectangleBranch(StartX, StartX + 0.5 * rangeX, StartY + 0.5 * rangeY, EndY, rand), // Upper Left
-                new RectangleBranch(StartX + 0.5 * rangeX, EndX, StartY + 0.5 * rangeY, EndY, rand), // Upper Right
+                new RectangleBranch(StartX, StartX + 0.5 * RangeX, StartY, StartY + 0.5 * RangeY, rand), // Bottom left
+                new RectangleBranch(StartX + 0.5 * RangeX, EndX, StartY, StartY + 0.5 * RangeY, rand), // Bottom Right
+                new RectangleBranch(StartX, StartX + 0.5 * RangeX, StartY + 0.5 * RangeY, EndY, rand), // Upper Left
+                new RectangleBranch(StartX + 0.5 * RangeX, EndX, StartY + 0.5 * RangeY, EndY, rand), // Upper Right
             };
         }
 
         protected override object RandomElement() => GetRandomElement(); // Handles return type covariance
         public new Tuple<double,double> GetRandomElement()
         {
-            double x = StartX + rangeX * rand.NextDouble();
-            double y = StartY + rangeY * rand.NextDouble();
+            double x = StartX + RangeX * rand.NextDouble();
+            double y = StartY + RangeY * rand.NextDouble();
             return new Tuple<double, double>(x, y);
         }
     }
