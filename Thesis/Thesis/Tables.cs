@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Thesis.Quadrature;
 using System.Data;
+using System.Linq;
 
 namespace Thesis
 {
@@ -566,15 +567,16 @@ namespace Thesis
 
         private static double QuantileRefNormal(IContinuousDistribution dist, double x) => ((Normal)dist).InverseCumulativeDistribution(x);
         
-        public static void ComparisonTablePairwise()
+        public static void ComparisonTablePairwise(bool figure = false)
         {
             var dists = new IContinuousDistribution[] {
                 new Normal(-5, 5, Program.rand),
                 new Normal(-8, 4, Program.rand) };
-            ComparisonTable("Pairwise", dists, QuantileRefNormal);
+            if (!figure) ComparisonTable("Pairwise", dists, QuantileRefNormal);
+            else ComparisonTableFigureTikz("Pairwise", dists, QuantileRefNormal);
         }
 
-        public static void ComparisonTableEasySet()
+        public static void ComparisonTableEasySet(bool figure = false)
         {
             var dists = new IContinuousDistribution[] {
             //new Normal(-1.2, 0.8),
@@ -586,14 +588,15 @@ namespace Thesis
             new Normal(-4, 0.6, Program.rand),
             new Normal(-4.2, 0.2, Program.rand),
             new Normal(-4.9, 1.2, Program.rand)};
-            ComparisonTable("Easy", dists, QuantileRefNormal);
+            if (!figure) ComparisonTable("Easy", dists, QuantileRefNormal);
+            else ComparisonTableFigureTikz("Easy", dists, QuantileRefNormal);
         }
 
-        public static void ComparisonTableMediumSet()
+        public static void ComparisonTableMediumSet(bool figure = false)
         {
             var dists = new IContinuousDistribution[] {
-                new Normal(-60, 3.5, Program.rand),
                 new Normal(-47, 0.5, Program.rand),
+                new Normal(-60, 3.5, Program.rand),
                 new Normal(-50, 2, Program.rand),
                 new Normal(-50.4, 0.4, Program.rand),
                 new Normal(-54, 6, Program.rand),
@@ -612,10 +615,11 @@ namespace Thesis
                 new Normal(-78, 0.3, Program.rand),
                 new Normal(-66, 0.6, Program.rand),
                 new Normal(-61, 2.8, Program.rand)};
-            ComparisonTable("Medium", dists, QuantileRefNormal);
+            if (!figure) ComparisonTable("Medium", dists, QuantileRefNormal);
+            else ComparisonTableFigureTikz("Medium", dists, QuantileRefNormal);
         }
 
-        public static void ComparisonTableHardSet()
+        public static void ComparisonTableHardSet(bool figure = false)
         {
             var dists = new Normal[] {
                 new Normal(-42.1414975984606, 38.764397247822), new Normal(-111.152342410918, 8.06294485778047), new Normal(-34.8209126659686, 32.3179648521382), new Normal(-37.3752628301367, 9.94884264425942),
@@ -648,7 +652,8 @@ namespace Thesis
                 new Normal(-101.136961186162, 14.7134801102065), new Normal(-72.9609850691086, 34.6575851080343), new Normal(-44.9818436748492, 37.3315424749977), new Normal(-75.9024579266147, 24.5372021465239),
                 new Normal(-33.48792485955, 6.80745151606826), new Normal(-57.5176712689636, 40.6935700741415), new Normal(-86.2632542195183, 38.0864428499461), new Normal(-65.065282256277, 43.8401272532989),
                 new Normal(-89.4144461292769, 34.1244135903195), new Normal(-84.182657873283, 25.2365153826144), new Normal(-91.8358709447718, 15.653145434997), new Normal(-58.3501662074713, 12.6953437070671)};
-            ComparisonTable("Hard", dists, QuantileRefNormal);
+            if (!figure) ComparisonTable("Hard", dists, QuantileRefNormal);
+            else ComparisonTableFigureTikz("Hard", dists, QuantileRefNormal);
 
             // Temp
             Program.logger.WriteLine("CC Auto Complements:");
@@ -879,6 +884,110 @@ namespace Thesis
 
             //logger.WriteTablesSideBySide(MCTable, TrapTable, SimpTable, GLTable, GHTable, CCTable);
             logger.WriteTablesSideBySide(MCTable, TrapTable, SimpTable, GLTable, GHTable, CCTable);
+
+            // Dispose of the tables and logger
+            MCTable.Dispose();
+            TrapTable.Dispose();
+            SimpTable.Dispose();
+            GLTable.Dispose();
+            GHTable.Dispose();
+            CCTable.Dispose();
+            logger.Dispose();
+        }
+
+        // Create a bunch of tables comparing the performances of different quadrature techniques computing 1-P(D_0) on the provided set of distributions, assuming they are already negated
+        private static void ComparisonTableFigureTikz(string name, IContinuousDistribution[] dists, Func<IContinuousDistribution, double, double> quantileFunctionRef)
+        {
+            Logger logger = new Logger("ComparisonFigure" + name + ".txt");
+
+            // Print the distributions in use for record-keeping
+            //logger.Write($"Distributions:");
+            //for (int i = 0; i < dists.Length; i++)
+            //{
+            //    logger.Write($" Dist {i}: {dists[i].GetType().Name}(mean {dists[i].Mean} stdDev {dists[i].StdDev})");
+            //}
+            //logger.WriteLine("");
+
+            // Pre-defined numbers of iterations to use
+            int[] iterationList = new int[] { 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 46, 52, 58, 64, 70, 76, 82, 88, 94, 100, 112, 124, 136, 148, 160, 184, 208, 232, 256, 280, 328, 376, 424, 472, 520, 616, 712, 808, 904, 1000, 3001, 5002, 8002, 12001, 15001, 18001 };
+
+            // === Compute 1 - P(D_0), which is P(N_0 > max N_j) ===
+            // Figure out the bounds first
+            double lowerBound = double.NegativeInfinity;
+            double upperBound = double.NegativeInfinity;
+            double epsilonM = Math.Pow(2, -52);
+            for (int i = 0; i < dists.Length; i++)
+            {
+                lowerBound = Math.Max(lowerBound, quantileFunctionRef(dists[i], epsilonM));
+                upperBound = Math.Max(upperBound, quantileFunctionRef(dists[i], 1 - epsilonM));
+            }
+
+            //logger.WriteLine($"Bounds: ({lowerBound}:{upperBound})");
+
+            // We need to figure out what the answer is so we can compute errors
+            double exactDiscardComplement = -1;
+            // Exact pairwise computation if possible
+            if (dists.Length == 2 && dists[0].GetType() == typeof(Normal))
+            {
+                Normal diff = new Normal(dists[1].Mean - dists[0].Mean, Math.Sqrt(dists[0].Variance + dists[1].Variance));
+                exactDiscardComplement = diff.CumulativeDistribution(0);
+                //logger.WriteLine($"Exact via Difference of Normals: {exactDiscardComplement}");
+            }
+            else // Otherwise use automatic Clenshaw Curtis to find the exact answer.
+            {
+                double Integrand(double x)
+                {
+                    double val = dists[0].Density(x);
+                    for (int i = 1; i < dists.Length; i++)
+                    {
+                        val *= dists[i].CumulativeDistribution(x);
+                    }
+                    return val;
+                }
+
+                // Inefficient Placeholder
+                exactDiscardComplement = NewtonCotes.TrapezoidRule(Integrand, lowerBound, upperBound, 5000);
+
+                //logger.WriteLine($"Exact via Integral: {exactDiscardComplement}");
+            }
+            
+            // Generate the tables
+            DataTable MCTable = MonteCarloConvergenceTable(dists, 0, iterationList, exactDiscardComplement);
+            DataTable TrapTable = TrapRuleConvergenceTable(dists, iterationList, exactDiscardComplement, lowerBound, upperBound);
+            DataTable SimpTable = Simpsons38ConvergenceTable(dists, iterationList, exactDiscardComplement, lowerBound, upperBound);
+            DataTable GLTable = GaussLegendreConvergenceTable(dists, iterationList, exactDiscardComplement, lowerBound, upperBound);
+            DataTable CCTable = ClenshawCurtisConvergenceTable(dists, iterationList, exactDiscardComplement, lowerBound, upperBound);
+            DataTable GHTable = GaussHermiteConvergenceTable(dists, iterationList, exactDiscardComplement);
+            
+            //logger.WriteTablesSideBySide(MCTable, TrapTable, SimpTable, GLTable, GHTable, CCTable);
+            
+            void WriteDrawCode(DataTable table, string colorArg) // colorone, colortwo, etc. for naming
+            {
+                logger.WriteLine($"\\draw[color={colorArg}] {GetOrderedPair(table, 0)}");
+                string oPair;
+                for (int i = 1; i < table.Rows.Count; i++)
+                {
+                    oPair = GetOrderedPair(table, i);
+                    if (oPair != null) logger.WriteLine($"-- {oPair}");
+                }
+                logger.WriteLine($";");
+            }
+
+            string GetOrderedPair(DataTable table, int idx, int evalThreshold = 130)
+            {
+                var row = table.Rows[idx];
+                int evals = (int)row.ItemArray[0];
+                if (evals > evalThreshold) return null;
+                double logError = Math.Max(-16, Math.Log10((double)row.ItemArray[2]));
+                return $"({evals},{logError})";
+            }
+
+            WriteDrawCode(MCTable, "colorone");
+            WriteDrawCode(TrapTable, "colortwo");
+            WriteDrawCode(SimpTable, "colorthree");
+            WriteDrawCode(GLTable, "colorfour");
+            WriteDrawCode(GHTable, "colorfive");
+            WriteDrawCode(CCTable, "colorsix");
 
             // Dispose of the tables and logger
             MCTable.Dispose();

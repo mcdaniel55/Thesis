@@ -40,6 +40,7 @@ namespace Thesis.BranchAndBound
         
         public Branch[] BranchAndBound(int sampleSize, int iterations, double confidenceLevel = 0.95, bool cullDuplicates = true)
         {
+            throw new NotImplementedException();
             // Sanity check the initial sample size
             if (sampleSize < 30) { throw new ArgumentOutOfRangeException("Sample size must be at least 30."); }
 

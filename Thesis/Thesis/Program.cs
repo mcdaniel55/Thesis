@@ -23,10 +23,12 @@ namespace Thesis
 
             //Tests.GenerateHardDistributionSet();
 
-            Tables.ComparisonTablePairwise();
-            Tables.ComparisonTableEasySet();
-            Tables.ComparisonTableMediumSet();
-            Tables.ComparisonTableHardSet();
+            Tables.ComparisonTablePairwise(figure: true);
+            Tables.ComparisonTableEasySet(figure: true);
+            Tables.ComparisonTableMediumSet(figure: true);
+            Tables.ComparisonTableHardSet(figure: true);
+
+
             //Tests.TestPickands();
 
             /*

@@ -14,6 +14,8 @@ namespace Thesis
         
         public static void RunEMSOptimization()
         {
+            throw new NotImplementedException();
+            /*
             EMSOptimizationOverhaul.Program.ImportData(3); // Use both years of data
             //var solutionSpace = new OneDimInterval(start: 2, end: 4, SampleSize: 100, rand: rand);
             //var solutionSpace = new TwoDimInterval(StartX: -10, EndX: 10, StartY: -10, EndY: 10, SampleSize: 30, rand: rand);
@@ -43,12 +45,12 @@ namespace Thesis
                 //Console.WriteLine($"Best score: {branch.BestObservation}");
                 //bestObserved = Math.Min(bestObserved, branch.BestObservation);
             }
-
+            */
             // Do an exhaustive search of the reduced search space to find the set of optima
             double bestObserved = double.PositiveInfinity;
 
             // ...
-
+            
             Console.WriteLine();
             Console.WriteLine($"Best observed in all regions :{bestObserved}");
         }
