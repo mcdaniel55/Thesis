@@ -27,48 +27,6 @@ namespace Thesis.BranchAndBound
             RangeY = EndY - StartY;
         }
 
-        /*
-        /// <summary> Creates a new interval with the designated start and end points </summary>
-        /// <param name="start"> A finite number less than end </param>
-        /// <param name="end"> A finite number greater than start </param>
-        /// <param name="rand"> An override for the default random number generator </param>
-        public IntervalBranch(double start, double end, Random rand = null) : base(rand)
-        {
-            Start = start;
-            End = end;
-            range = end - start;
-        }
-
-        public TwoDimInterval(double StartX, double EndX, double StartY, double EndY, Random rand) : base(rand)
-        {
-            this.StartX = StartX;
-            this.StartY = StartY;
-            this.EndX = EndX;
-            this.EndY = EndY;
-            rangeX = EndX - StartX;
-            rangeY = EndY - StartY;
-        }
-
-        public override Region[] Branch()
-        {
-            // Quartering version
-            return new Region[]
-            {
-                new TwoDimInterval(StartX, StartX + rangeX / 2, StartY, StartY + rangeY / 2, m_rand), // Bottom left
-                new TwoDimInterval(StartX + rangeX / 2, EndX, StartY, StartY + rangeY / 2, m_rand), // Bottom Right
-                new TwoDimInterval(StartX, StartX + rangeX / 2, StartY + rangeY / 2, EndY, m_rand), // Upper Left
-                new TwoDimInterval(StartX + rangeX / 2, EndX, StartY + rangeY / 2, EndY, m_rand), // Upper Right
-            };
-        }
-
-        protected override double SampleElement()
-        {
-            double x = StartX + rangeX * m_rand.NextDouble();
-            double y = StartY + rangeY * m_rand.NextDouble();
-            return LevyN13(x, y);
-        }*/
-
-
         public override Branch[] GetBranches()
         {
             // Quartering version
@@ -87,6 +45,11 @@ namespace Thesis.BranchAndBound
             double x = StartX + RangeX * rand.NextDouble();
             double y = StartY + RangeY * rand.NextDouble();
             return new Tuple<double, double>(x, y);
+        }
+
+        public override string ToString()
+        {
+            return $"Rectangle X:[{StartX},{EndX}] Y:[{StartY},{EndY}]";
         }
     }
 }

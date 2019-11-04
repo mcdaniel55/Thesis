@@ -56,5 +56,10 @@ namespace Thesis.BranchAndBound
         {
             return Start + range * rand.NextDouble();
         }
+
+        public override string ToString()
+        {
+            return $"Interval [{Start},{End}]";
+        }
     }
 }

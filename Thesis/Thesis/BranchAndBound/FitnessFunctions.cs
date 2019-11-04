@@ -58,16 +58,25 @@ namespace Thesis.BranchAndBound
         // --- Functions of 20 variables ---
         public static double EMSPlanFitness(int[] fullAmbs, int[] partAmbs)
         {
-            // Test the plan
-            Simulation sim = new Simulation(
-                startTime: new DateTime(2016, 1, 1, 0, 0, 0), // These don't have to change when you use only 2016 or only 2017 calls
-                endTime: new DateTime(2018, 1, 1, 0, 0, 0),
-                fullAmbsToSpawn: fullAmbs,
-                partAmbsToSpawn: partAmbs,
-                centralized: true,
-                speedMPH: 24f);
-            sim.Run();
-
+            // Test the plan, try up to five times
+            Simulation sim = null;
+            for (int i = 0; i < 5; i++)
+            {
+                try
+                {
+                    sim = new Simulation(
+                        startTime: new DateTime(2016, 1, 1, 0, 0, 0), // These don't have to change if you want to use only 2016 or only 2017 calls, either
+                        endTime: new DateTime(2018, 1, 1, 0, 0, 0),
+                        fullAmbsToSpawn: fullAmbs,
+                        partAmbsToSpawn: partAmbs,
+                        centralized: true,
+                        speedMPH: 24f);
+                    sim.Run();
+                }
+                catch (Exception e) { }
+                if (sim != null) break;
+            }
+            
             // Compute the score
             return sim.MeanResponseTime * sim.Cost;
         }

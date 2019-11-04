@@ -43,7 +43,7 @@ namespace Thesis
         /// <param name="normals">The set of normal distributions</param>
         /// <param name="idx">The index of the distribution for which we are computing a discard probability</param>
         /// <returns>The highest probability found</returns>
-        public static double BestPairwiseDiscardNormal(Normal[] normals, int idx)
+        public static double BestPairwiseDiscardNormalByIndex(Normal[] normals, int idx)
         {
             double bestDiscardProbability = 0;
 
@@ -112,7 +112,7 @@ namespace Thesis
             double[] bestDiscardProbabilities = new double[normals.Length];
             for (int i = 0; i < normals.Length; i++)
             {
-                bestDiscardProbabilities[i] = BestPairwiseDiscardNormal(normals, i);
+                bestDiscardProbabilities[i] = BestPairwiseDiscardNormalByIndex(normals, i);
             }
             return bestDiscardProbabilities;
         }
@@ -120,14 +120,14 @@ namespace Thesis
         /// <summary>
         /// Looks at every pair-wise comparison between elements of normals and returns the index of the element with the greatest probability of being discarded
         /// </summary>
-        /// <remarks>This is an O(n) operation in the asymptotic case as n -> infty. The n elements are presumably arranged in some cloud, and the optimal and anti-optimal sets
+        /// <remarks>This is a theta(n) operation in the asymptotic case as n -> infty. The n elements are presumably arranged in some cloud, and the optimal and anti-optimal sets
         /// are each roughly half of the perimeter of the cloud. If the cloud ~ n, then the perimeter ~ 2sqrt(n), so there are sqrt(n) in each of the optimal and
         /// anti-optimal sets. Each of these will be compared against every element of the other set, so there will be approximately sqrt(n)*sqrt(n) = n operations.
         /// This is the preferred method for finding the next element to discard, as the anti-optimal set may gain elements whenever an element is discarded.</remarks>
         /// <param name="normals">The set of normal distributions</param>
         /// <param name="discardProbability">The probability with which the indicated branch can be discarded based on a pairwise comparison</param>
         /// <returns>The index of the branch with the highest discard probability</returns>
-        public static int BestPairwiseDiscard(Normal[] normals, out double discardProbability)
+        public static int BestPairwiseDiscardNormal(Normal[] normals, out double discardProbability)
         {
             double bestDiscardProbability = 0;
             int bestIndex = 0;
@@ -138,12 +138,13 @@ namespace Thesis
 
             for (int i = 0; i < normals.Length; i++)
             {
+                if (normals[i] == null) continue;
                 bool dominates = false;
                 bool isDominated = false;
 
                 for (int j = 0; j < normals.Length; j++)
                 {
-                    if (j == i) continue;
+                    if (j == i || normals[j] == null) continue;
                     if (normals[j].Mean < normals[i].Mean && normals[j].StdDev <= normals[i].StdDev
                         || normals[j].StdDev < normals[i].StdDev && normals[j].Mean <= normals[i].Mean) isDominated = true;
                     if (normals[i].Mean < normals[j].Mean && normals[i].StdDev <= normals[j].StdDev ||
