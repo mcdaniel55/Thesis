@@ -14,8 +14,6 @@ namespace Thesis
         
         public static void RunEMSOptimization()
         {
-            throw new NotImplementedException();
-            /*
             EMSOptimizationOverhaul.Program.ImportData(3); // Use both years of data
             //var solutionSpace = new OneDimInterval(start: 2, end: 4, SampleSize: 100, rand: rand);
             //var solutionSpace = new TwoDimInterval(StartX: -10, EndX: 10, StartY: -10, EndY: 10, SampleSize: 30, rand: rand);
@@ -25,11 +23,11 @@ namespace Thesis
                 PartAmbs: new int[Station.List.Count],
                 TargetAmbulanceCount: 10,
                 rand: Program.rand);
-            var Problem = new SIDBranchAndBound<PartialEMSPlanBranch>(solutionSpace, FitnessFunctions.EMSPlanFitness, SIDBranchAndBound<PartialEMSPlanBranch>.GuidingParameter.LowerMean);
+            var Problem = new SIDBranchAndBound<PartialEMSPlanBranch>(solutionSpace, FitnessFunctions.EMSPlanFitness, GuidingParameter.LowerMean);
 
             Logging.Log("Problem Initialized");
 
-            Branch[] branchSet = Problem.RunBranchAndBound(sampleSize: 300, layers: 9, confidenceLevel: 0.95, Conservative: false, CullDuplicates: true);
+            Branch[] branchSet = Problem.BranchAndBound(sampleSize: 300, iterations: 9, confidenceLevel: 0.95, cullDuplicates: true);
 
             // Print the set of branches produced by the B&B routine
             foreach (Branch branch in branchSet)
@@ -45,7 +43,7 @@ namespace Thesis
                 //Console.WriteLine($"Best score: {branch.BestObservation}");
                 //bestObserved = Math.Min(bestObserved, branch.BestObservation);
             }
-            */
+            
             // Do an exhaustive search of the reduced search space to find the set of optima
             double bestObserved = double.PositiveInfinity;
 
@@ -95,11 +93,13 @@ namespace Thesis
             Logger output = new Logger("GEV Test A.csv");
             Logger output2 = new Logger("GEV Test B.csv");
             //var dist = new ChiSquared(4, Program.rand);
-            var dist = new Beta(2, 2);
+            //var dist = new Beta(2, 2);
+            //var dist = new Beta(2, 5);
+            var dist = new Beta(2, 1.5);
             output.WriteLine($"Distribution: {dist.ToString().Replace(',',' ')}");
             //var dist = new Exponential(2, Program.rand);
             //var dist = new Gamma(2, 2, Program.rand);
-            const int sampleSize = 200;
+            const int sampleSize = 120;
             output.WriteLine($"Samplesize: {sampleSize}");
 
             // Report the distribution 1-1/e quantile
@@ -301,8 +301,13 @@ namespace Thesis
             //var sorter = new List<double>(sample);
             //sorter.Sort();
             //sample = sorter.ToArray(); 
+
+            // Smoothed version
+            //double[] smoothedData = new double[sample.Length - 1];
+            //for (int i = 0; i < smoothedData.Length; i++) { smoothedData[i] = 0.5 * (sample[i] + sample[i + 1]); }
+            //var pickandsApprox = new PickandsApproximation(smoothedData, method: PickandsApproximation.FittingMethod.Pickands_SupNorm); // Construct a Pickands tail approx from the sample
+
             var pickandsApprox = new PickandsApproximation(sample, method: PickandsApproximation.FittingMethod.BFGS_MSE); // Construct a Pickands tail approx from the sample
-            
             // Bootstrap observations of the distribution of the sample maximum from the Pickands model
             double[] approxObservations = new double[observations.Length];
             for (int i = 0; i < approxObservations.Length; i++)

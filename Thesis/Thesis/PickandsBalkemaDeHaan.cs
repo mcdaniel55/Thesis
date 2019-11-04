@@ -53,7 +53,7 @@ namespace Thesis
 
         /// <summary> Estimates the values of c and a based on a choice of M </summary>
         /// <param name="data"> An indexed list or array of observations of the RV, in increasing order </param>
-        /// <param name="m"> How many data points back in the list to compute the estimate with. Must be <= count/4 </param>
+        /// <param name="m"> How many data points back in the list to compute the estimate with. Must be less than or equal to count / 4 </param>
         public static void EstimateParams(IList<double> data, int m, out double c, out double a)
         {
             const double ln2inv = 1.44269504088896; // 1 / ln(2)
@@ -100,6 +100,22 @@ namespace Thesis
             double Weight(int i) => (data.Count - i + 1) * 1.0 / data.Count;
         }
 
+        private static double DeviationSupNormSmoothed(IList<double> data, int l, double a = -1, double c = 0)
+        {
+            double largestDeviation = 0;
+            if (a < 0) { EstimateParams(data, l, out c, out a); }
+            double xOffset = data[data.Count - 4 * l];
+            for (int i = 1; i < 4 * l; i++)
+            {
+                double x = 0.5 * (data[data.Count - i] + data[data.Count - i - 1]) - xOffset;
+                double target = (8 * l - 2 * i - 1) * 0.5 / (4 * l - 1); //((2 * (data.Count - i + 1)) - 1) / (2.0 * data.Count);
+                double GHat = TailCDF(x, a, c);
+                double deviation = Math.Abs(GHat - target);
+                largestDeviation = Math.Max(largestDeviation, deviation);
+            }
+            return largestDeviation;
+        }
+
         private static double DeviationWeightedLeastSquares(IList<double> data, int l, double a = -1, double c = 0)
         {
             double sum = 0;
@@ -135,7 +151,8 @@ namespace Thesis
             double smallestDeviation = double.PositiveInfinity;
             for (int i = 1; i <= data.Count / 4; i++)
             {
-                double deviation = DeviationSupNorm(data, i);
+                //double deviation = DeviationSupNorm(data, i);
+                double deviation = DeviationSupNormSmoothed(data, i);
                 //Console.WriteLine($"Deviation: {deviation}"); // Testing
                 if (deviation < smallestDeviation)
                 {
@@ -187,7 +204,7 @@ namespace Thesis
             var optimum = FindMinimum.OfFunctionConstrained(Fitness,
                 lowerBound: CreateVector.DenseOfArray(new double[] { lowerBoundA, lowerBoundC, data[0] }),
                 upperBound: CreateVector.DenseOfArray(new double[] { upperBoundA, upperBoundC, data[data.Count - 3] }),
-                initialGuess: CreateVector.DenseOfArray(new double[] { pickandsEstA, pickandsEstC, data[data.Count * 3 / 4] }));
+                initialGuess: CreateVector.DenseOfArray(new double[] { pickandsEstA, Math.Min(pickandsEstC, 0), data[data.Count * 3 / 4] }));
 
             // Return parameters
             a = optimum[0];
@@ -439,12 +456,13 @@ namespace Thesis
                     transitionProportion = (sortedData.Count - m + 1.0) / data.Count;
                     transitionAbscissa = sortedData[sortedData.Count - m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
                     break;
-
+                    
                 default:
                     PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(sortedData, out a, out c, out m); // Write m to transitionIndex
                     transitionProportion = (sortedData.Count - 4 * m + 1.0) / data.Count;
                     transitionAbscissa = sortedData[sortedData.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
                     break;
+
             }
             
             if (rand == null) rand = Program.rand;

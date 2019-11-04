@@ -56,8 +56,10 @@ namespace Thesis.BranchAndBound
         }
 
         // --- Functions of 20 variables ---
-        public static double EMSPlanFitness(int[] fullAmbs, int[] partAmbs)
+        public static double EMSPlanFitness(PartialEMSPlanBranch branch)
         {
+            Tuple<int[],int[]> input = branch.GetRandomElement();
+
             // Test the plan, try up to five times
             Simulation sim = null;
             for (int i = 0; i < 5; i++)
@@ -67,8 +69,8 @@ namespace Thesis.BranchAndBound
                     sim = new Simulation(
                         startTime: new DateTime(2016, 1, 1, 0, 0, 0), // These don't have to change if you want to use only 2016 or only 2017 calls, either
                         endTime: new DateTime(2018, 1, 1, 0, 0, 0),
-                        fullAmbsToSpawn: fullAmbs,
-                        partAmbsToSpawn: partAmbs,
+                        fullAmbsToSpawn: input.Item1,
+                        partAmbsToSpawn: input.Item2,
                         centralized: true,
                         speedMPH: 24f);
                     sim.Run();
