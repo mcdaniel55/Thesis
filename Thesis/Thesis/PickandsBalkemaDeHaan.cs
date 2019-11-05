@@ -177,7 +177,7 @@ namespace Thesis
                 if (nextLargestIndex < 0) nextLargestIndex = ~nextLargestIndex + 1;
                 int knotCount = data.Count - nextLargestIndex;
 
-                //for (int i = nextLargestIndex; i < data.Count; i++)
+                /* ECDF version MSE
                 for (int i = 0; i < knotCount; i++)
                 {
                     // The largest deviation should occur at one of the step points
@@ -189,7 +189,17 @@ namespace Thesis
                     //weightsum += weight;
                 }
                 return sum / knotCount; // Consider dividing by n or n^2 here
+                */
                 //return sum / (weightsum * knotCount);
+
+                // Smoothed version MSE
+                for (int i = 0; i < knotCount - 1; i++)
+                {
+                    double GHat = TailCDF(0.5 * (data[nextLargestIndex + i] + data[nextLargestIndex + i + 1]) - input[2], input[0], input[1]);
+                    double residual = (2.0 * i + 3) / (2.0 * knotCount) - GHat;
+                    sum += residual * residual;
+                }
+                return sum / knotCount;
             }
 
             // Get Pickands' estimates of a and c for m = n/16 + 1 as starting guesses, consistent with Z4M at the 75th percentile
@@ -198,13 +208,13 @@ namespace Thesis
             double lowerBoundA = 0;
             double upperBoundA = 3 * pickandsEstA + 1;
             double lowerBoundC = Math.Min(3 * pickandsEstC, -3 * pickandsEstC) - 1;
-            double upperBoundC = 0; //-lowerBoundC;
+            double upperBoundC = -lowerBoundC;
             // Initial guess for u is at data[(3/4)n]
 
             var optimum = FindMinimum.OfFunctionConstrained(Fitness,
                 lowerBound: CreateVector.DenseOfArray(new double[] { lowerBoundA, lowerBoundC, data[0] }),
                 upperBound: CreateVector.DenseOfArray(new double[] { upperBoundA, upperBoundC, data[data.Count - 3] }),
-                initialGuess: CreateVector.DenseOfArray(new double[] { pickandsEstA, Math.Min(pickandsEstC, 0), data[data.Count * 3 / 4] }));
+                initialGuess: CreateVector.DenseOfArray(new double[] { pickandsEstA, pickandsEstC /*Math.Min(pickandsEstC, 0)*/, data[data.Count * 3 / 4] }));
 
             // Return parameters
             a = optimum[0];

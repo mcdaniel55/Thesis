@@ -94,12 +94,12 @@ namespace Thesis
             Logger output2 = new Logger("GEV Test B.csv");
             //var dist = new ChiSquared(4, Program.rand);
             //var dist = new Beta(2, 2);
-            //var dist = new Beta(2, 5);
-            var dist = new Beta(2, 1.5);
+            var dist = new Beta(2, 5);
+            //var dist = new Beta(2, 1.5);
             output.WriteLine($"Distribution: {dist.ToString().Replace(',',' ')}");
             //var dist = new Exponential(2, Program.rand);
             //var dist = new Gamma(2, 2, Program.rand);
-            const int sampleSize = 120;
+            const int sampleSize = 100;
             output.WriteLine($"Samplesize: {sampleSize}");
 
             // Report the distribution 1-1/e quantile
