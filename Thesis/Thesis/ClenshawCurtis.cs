@@ -69,7 +69,7 @@ namespace Thesis.Quadrature
             // Compute a linear transformation from the interval to [-1,1]
             double a = (intervalEnd - intervalStart) / 2.0;
             double b = intervalStart + a;
-            Func<double, double> xOfz = z => a * z + b; // As z ranges from [-1,1], x ranges over [start,end]
+            double xOfz(double z) => a * z + b; // As z ranges from [-1,1], x ranges over [start,end]
 
             double sum = 0;
             for (int i = 0; i < weights.Length; i++)

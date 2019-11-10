@@ -28,7 +28,6 @@ namespace Thesis
             //Tables.ComparisonTableMediumSet(figure: true);
             //Tables.ComparisonTableHardSet(figure: true);
 
-
             //Tests.TestPickands();
 
             Tests.TestGEV();

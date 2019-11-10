@@ -30,7 +30,7 @@ namespace Thesis.BranchAndBound
 
         public double BestFitnessObserved { get; private set; }
 
-        public object BestElementObserved { get; private set; }
+        public T BestElementObserved { get; private set; }
 
         public GuidingParameter GuidingParam { get; set; }
         #endregion
@@ -49,7 +49,7 @@ namespace Thesis.BranchAndBound
             if (sampleSize < 30) { throw new ArgumentOutOfRangeException("Sample size must be at least 30."); }
 
             double branchingFactor = 0; // Keeps track of average branches per active region per layer, which may not be constant if there is overlap between regions
-            double BestObservedValue = double.PositiveInfinity;
+            //double BestObservedValue = double.PositiveInfinity;
             Branch[] activeBranches = new Branch[] { SolutionSpace };
             //List<Branch> discardedRegions = new List<Branch>(512); // Tentative
 
@@ -205,12 +205,26 @@ namespace Thesis.BranchAndBound
                 }
                 else // Non-normal case
                 {
+                    /*
                     double maxLowerBound = double.NegativeInfinity;
                     for (int i = 0; i < parameterDistributions.Length; i++) { maxLowerBound = Math.Max(maxLowerBound, lowerBounds[i]); }
                     // Discard any distribution with an upper bound less than max lower bound
                     for (int i = 0; i < parameterDistributions.Length; i++)
                     {
                         if (upperBounds[i] < maxLowerBound)
+                        {
+                            parameterDistributions[i] = null;
+                            performedPreEmptive = true;
+                        }
+                    }*/
+
+                    // Still in minimizing mode here, as we have not yet negated the distributions
+                    double minUpperBound = double.PositiveInfinity;
+                    for (int i = 0; i < parameterDistributions.Length; i++) { minUpperBound = Math.Min(minUpperBound, upperBounds[i]); }
+                    // Discard any distribution with a lower bound greater than the smallest upper bound
+                    for (int i = 0; i < parameterDistributions.Length; i++)
+                    {
+                        if (lowerBounds[i] > minUpperBound)
                         {
                             parameterDistributions[i] = null;
                             performedPreEmptive = true;
@@ -287,14 +301,14 @@ namespace Thesis.BranchAndBound
             activeBranches = compactedBranches.ToArray();
 
             // Assign the best observed
-            BestElementObserved = activeBranches[0].BestObservedSolution;
+            BestElementObserved = (T)activeBranches[0].BestObservedSolution;
             BestFitnessObserved = activeBranches[0].MinimumObservedFitness;
             for (int i = 1; i < activeBranches.Length; i++)
             {
                 if (activeBranches[i].MinimumObservedFitness < BestFitnessObserved)
                 {
                     BestFitnessObserved = activeBranches[i].MinimumObservedFitness;
-                    BestElementObserved = activeBranches[i].BestObservedSolution;
+                    BestElementObserved = (T)activeBranches[i].BestObservedSolution;
                 }
             }
 

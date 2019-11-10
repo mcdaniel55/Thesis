@@ -35,38 +35,38 @@ namespace Thesis
             return sum / data.Count;
         }
 
-        public static double Quantile(double[] data, double q)
+        public static double Quantile(IList<double> sortedData, double q)
         {
             if (q < 0 || q > 1) { throw new ArgumentOutOfRangeException($"Desired percentile is out of range: {q}"); }
-            if (q == 0) { return data[0]; }
-            if (q == 1) { return data[data.Length - 1]; }
+            if (q == 0) { return sortedData[0]; }
+            if (q == 1) { return sortedData[sortedData.Count - 1]; }
 
-            double product = (data.Length - 1) * q;
+            double product = (sortedData.Count - 1) * q;
             int idx = (int) product;
             //return data[idx + 1] * (product - idx) + data[idx] * (idx + 1 - product);
-            return Interpolation.Lerp(idx, data[idx], idx + 1, data[idx + 1], product);
+            return Interpolation.Lerp(idx, sortedData[idx], idx + 1, sortedData[idx + 1], product);
         }
 
-        public static double MeanOfLowerHalf(IList<double> data)
+        public static double MeanOfLowerHalf(IList<double> sortedData)
         {
-            double median = Median(data);
+            double median = Median(sortedData);
             double sum = 0;
             int count = 0;
-            for (int i = 0; i < data.Count; i++)
+            for (int i = 0; i < sortedData.Count; i++)
             {
-                if (data[i] < median)
+                if (sortedData[i] < median)
                 {
-                    sum += data[i];
+                    sum += sortedData[i];
                     count++;
                 }
             }
             return sum / count;
         }
 
-        public static double Median(IList<double> data)
+        public static double Median(IList<double> sortedData)
         {
-            if (data.Count % 2 == 1) return data[data.Count / 2];
-            return (data[data.Count / 2 - 1] + data[data.Count / 2]) / 2;
+            if (sortedData.Count % 2 == 1) return sortedData[sortedData.Count / 2];
+            return (sortedData[sortedData.Count / 2 - 1] + sortedData[sortedData.Count / 2]) / 2;
         }
     }
 }

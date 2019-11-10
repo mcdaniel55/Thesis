@@ -199,7 +199,8 @@ namespace Thesis
                     double residual = (2.0 * i + 3) / (2.0 * knotCount) - GHat;
                     sum += residual * residual;
                 }
-                return sum / knotCount;
+                //return sum / knotCount;
+                return (1 + Math.Abs(input[1])) * sum / knotCount; // Weighted so that smaller magnitudes of c are preferred
             }
 
             // Get Pickands' estimates of a and c for m = n/16 + 1 as starting guesses, consistent with Z4M at the 75th percentile
@@ -256,6 +257,7 @@ namespace Thesis
                     double deviation = TailCDF(x, aHat, gammaHat) - ecdfAtX;
                     sum += deviation * deviation;
                 }
+                //return (1 + Math.Abs(gammaHat)) * sum / k; // Weighted version
                 return sum / k;
             }
 
@@ -281,12 +283,12 @@ namespace Thesis
                     double fitMin = Math.Min(runningMin, Math.Min(higherEstFitness, lowerEstFitness));
                     if (higherEstFitness == fitMin)
                     {
-                        bestEst = bestEst + delta;
+                        bestEst += delta;
                         runningMin = fitMin;
                     }
                     else if (lowerEstFitness == fitMin)
                     {
-                        bestEst = bestEst - delta;
+                        bestEst -= delta;
                         runningMin = fitMin;
                     }
                 }
@@ -305,8 +307,7 @@ namespace Thesis
             }
 
             // Temp
-            double z1, z2;
-            Moments(m, out z1, out z2);
+            Moments(m, out double z1, out _);
             Program.logger.WriteLine($"Gamma hat: {c}");
             Program.logger.WriteLine($"Sigma hat: {data[data.Count - m - 1] * z1 * (1 - c)}");
             Program.logger.WriteLine($"Gammas");
@@ -439,8 +440,8 @@ namespace Thesis
         public double a, c; // Parameters, with c corresponding to the gamma or xi parameter of the associated GEV distribution
         public double transitionProportion;
         public double transitionAbscissa;
-        List<double> sortedData;
-        Random rand;
+        readonly List<double> sortedData;
+        readonly Random rand;
 
         public enum FittingMethod { Pickands_SupNorm, BFGS_MSE, Moments_MSE }
 

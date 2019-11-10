@@ -12,7 +12,7 @@ namespace Thesis
 
         public GEV(double location, double scale, double shape, Random rand = null)
         {
-            RandomSource = rand == null ? Program.rand : rand;
+            RandomSource = rand ?? Program.rand;
             this.location = location;
             this.scale = scale;
             this.shape = shape;
@@ -78,7 +78,7 @@ namespace Thesis
         {
             get
             {
-                return Math.Log(scale) + Constants.EulerMascheroni * (shape + 1) + 1; // Needs testing, might be Log instead of Log10
+                return Math.Log(scale) + Constants.EulerMascheroni * (shape + 1) + 1; // Needs testing; probably Ln, but might be Log10
             }
         }
 
