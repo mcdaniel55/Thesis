@@ -5,3 +5,5 @@
 * If there is time, add #if DEBUG conditional compiling tests to each method so that when running in debug mode, the inputs and outputs for each method are validated.
 
 * Don't sort the data inside methods if avoidable. The user of the method should provide sorted data, and it should be labeled as such in the parameter list.
+
+* Likewise, if there is time, move RNG specification out of the methods/objects and have it pass through parameters, so high-level code overtly specifies the RNG for lower level code and there is no "default" RNG.

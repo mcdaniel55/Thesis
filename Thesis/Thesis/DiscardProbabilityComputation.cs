@@ -182,124 +182,73 @@ namespace Thesis
         // distributions and finding the probability that each is the maximum. This approach is generally preferable to the original form of 
         // the integrand, as it increases numerical stability by eliminating a subtraction for each CDF.
 
-        public struct NegatedDistribution
-        {
-            public IContinuousDistribution originalDistribution;
-            public double upperBound, lowerBound;
-            public NegatedDistribution(IContinuousDistribution originalDistribution, double originalLowerBound, double originalUpperBound)
-            {
-                this.originalDistribution = originalDistribution;
-                upperBound = -originalLowerBound;
-                lowerBound = -originalUpperBound;
-            }
-
-            public double CumulativeDistribution(double x)
-            {
-                return originalDistribution.CumulativeDistribution(-x);
-            }
-
-            public double Density(double x)
-            {
-                return originalDistribution.Density(-x);
-            }
-
-            public double Sample()
-            {
-                return -originalDistribution.Sample();
-            }
-        }
-
-        public static NegatedDistribution[] NegateDistributions(IContinuousDistribution[] distributions, double[] lowerBounds, double[] upperBounds)
-        {
-            NegatedDistribution[] result = new NegatedDistribution[distributions.Length];
-
-            for (int i = 0; i < distributions.Length; i++)
-            {
-                result[i] = new NegatedDistribution(distributions[i], lowerBounds[i], upperBounds[i]);
-            }
-
-            return result;
-        }
-
-        public static NegatedDistribution[] NegateNormalDistributions(Normal[] distributions)
-        {
-            var result = new NegatedDistribution[distributions.Length];
-            double epsilon = Math.Pow(2, -52);
-            for (int i = 0; i < distributions.Length; i++)
-            {
-                result[i] = new NegatedDistribution(distributions[i], distributions[i].InverseCumulativeDistribution(epsilon), distributions[i].InverseCumulativeDistribution(1 - epsilon));
-                    //-distributions[i].Mean, distributions[i].StdDev, distributions[i].RandomSource);
-            }
-            return result;
-        }
-
         /// <summary>
         /// Computes the complement discard probabilities for each branch with the provided negated parameter distributions.
         /// </summary>
-        /// <param name="distributions">The negated parameter distributions of the set of branches </param>
+        /// <param name="negDistributions">The negated parameter distributions of the set of branches </param>
         /// <param name="steps"> The number of steps to be used in the trap rule, which is one less than the number of evaluations </param>
         /// <returns> The complement discard probability for each branch </returns>
-        public static double[] ComplementsTrapezoid(NegatedDistribution[] distributions, int steps = 150)
+        public static double[] ComplementsTrapezoid(IDistributionWrapper[] negDistributions, int steps = 150)
         {
-            double[] complementProbs = new double[distributions.Length];
+            double[] complementProbs = new double[negDistributions.Length];
 
-            for (int i = 0; i < distributions.Length; i++)
+            for (int i = 0; i < negDistributions.Length; i++)
             {
                 double Integrand(double x)
                 {
-                    double product = distributions[i].Density(x);
-                    for (int j = 0; j < distributions.Length; j++)
+                    double product = negDistributions[i].Density(x);
+                    for (int j = 0; j < negDistributions.Length; j++)
                     {
-                        if (j != i) { product *= distributions[j].CumulativeDistribution(x); }
+                        if (j != i) { product *= negDistributions[j].CumulativeDistribution(x); }
                     }
                     return product;
                 };
 
-                complementProbs[i] = Quadrature.NewtonCotes.TrapezoidRule(Integrand, distributions[i].lowerBound, distributions[i].upperBound, steps);
+                complementProbs[i] = Quadrature.NewtonCotes.TrapezoidRule(Integrand, negDistributions[i].GetLowerBound(), negDistributions[i].GetUpperBound(), steps);
             }
 
             return complementProbs;
         }
 
         // Method with alt form using Simpson's 3/8 rule
-        public static double[] ComplementsSimpsons38(NegatedDistribution[] distributions, int steps = 150)
+        public static double[] ComplementsSimpsons38(IDistributionWrapper[] negDistributions, int steps = 150)
         {
             if (steps % 3 != 0) steps += 3 - steps % 3; // Round up to a multiple of 3
-            double[] complementProbs = new double[distributions.Length];
+            double[] complementProbs = new double[negDistributions.Length];
 
-            for (int i = 0; i < distributions.Length; i++)
+            for (int i = 0; i < negDistributions.Length; i++)
             {
                 double Integrand(double x)
                 {
-                    double product = distributions[i].Density(x);
-                    for (int j = 0; j < distributions.Length; j++)
+                    double product = negDistributions[i].Density(x);
+                    for (int j = 0; j < negDistributions.Length; j++)
                     {
-                        if (j != i) { product *= distributions[j].CumulativeDistribution(x); }
+                        if (j != i) { product *= negDistributions[j].CumulativeDistribution(x); }
                     }
                     return product;
                 };
 
-                complementProbs[i] = Quadrature.NewtonCotes.Simpsons38Rule(Integrand, distributions[i].lowerBound, distributions[i].upperBound, steps);
+                complementProbs[i] = Quadrature.NewtonCotes.Simpsons38Rule(Integrand, negDistributions[i].GetLowerBound(), negDistributions[i].GetUpperBound(), steps);
             }
 
             return complementProbs;
         }
 
         // Method with alt form using Gauss-Hermite. The distributions provided are assumed to have already been negated.
-        public static double[] ComplementsHermite(Normal[] distributions, int order)
+        public static double[] ComplementsHermite(Normal[] negDistributions, int order)
         {
-            double[] complementProbs = new double[distributions.Length];
+            double[] complementProbs = new double[negDistributions.Length];
 
-            for (int i = 0; i < distributions.Length; i++)
+            for (int i = 0; i < negDistributions.Length; i++)
             {
-                double XOfZ(double z) => distributions[i].Mean + z * Math.Sqrt(2) * distributions[i].StdDev; // Converts Z to X
+                double XOfZ(double z) => negDistributions[i].Mean + z * Math.Sqrt(2) * negDistributions[i].StdDev; // Converts Z to X
 
                 double Integrand(double z)
                 {
                     double product = 1; // The density is already factored into the method
-                    for (int j = 0; j < distributions.Length; j++)
+                    for (int j = 0; j < negDistributions.Length; j++)
                     {
-                        if (j != i) { product *= distributions[j].CumulativeDistribution(XOfZ(z)); }
+                        if (j != i) { product *= negDistributions[j].CumulativeDistribution(XOfZ(z)); }
                     }
                     return product;
                 };
@@ -312,53 +261,53 @@ namespace Thesis
         }
 
         // Method with alt form using Gauss-Legendre
-        public static double[] ComplementsLegendre(NegatedDistribution[] distributions, int order)
+        public static double[] ComplementsLegendre(IDistributionWrapper[] negDistributions, int order)
         {
-            double[] complementProbs = new double[distributions.Length];
+            double[] complementProbs = new double[negDistributions.Length];
 
-            for (int i = 0; i < distributions.Length; i++)
+            for (int i = 0; i < negDistributions.Length; i++)
             {
                 double Integrand(double x)
                 {
-                    double product = distributions[i].Density(x);
-                    for (int j = 0; j < distributions.Length; j++)
+                    double product = negDistributions[i].Density(x);
+                    for (int j = 0; j < negDistributions.Length; j++)
                     {
-                        if (j != i) { product *= distributions[j].CumulativeDistribution(x); }
+                        if (j != i) { product *= negDistributions[j].CumulativeDistribution(x); }
                     }
                     return product;
                 };
 
-                complementProbs[i] = Quadrature.GaussLegendre.Integrate(Integrand, distributions[i].lowerBound, distributions[i].upperBound, order);
+                complementProbs[i] = Quadrature.GaussLegendre.Integrate(Integrand, negDistributions[i].GetLowerBound(), negDistributions[i].GetUpperBound(), order);
             }
 
             return complementProbs;
         }
 
         // Method with alt form using Clenshaw-Curtis
-        public static double[] ComplementsClenshawCurtis(NegatedDistribution[] distributions, int order)
+        public static double[] ComplementsClenshawCurtis(IDistributionWrapper[] negDistributions, int order)
         {
-            double[] complementProbs = new double[distributions.Length];
+            double[] complementProbs = new double[negDistributions.Length];
 
-            for (int i = 0; i < distributions.Length; i++)
+            for (int i = 0; i < negDistributions.Length; i++)
             {
                 double Integrand(double x)
                 {
-                    double product = distributions[i].Density(x);
-                    for (int j = 0; j < distributions.Length; j++)
+                    double product = negDistributions[i].Density(x);
+                    for (int j = 0; j < negDistributions.Length; j++)
                     {
-                        if (j != i) { product *= distributions[j].CumulativeDistribution(x); }
+                        if (j != i) { product *= negDistributions[j].CumulativeDistribution(x); }
                     }
                     return product;
                 };
 
-                complementProbs[i] = Quadrature.ClenshawCurtis.Integrate(Integrand, distributions[i].lowerBound, distributions[i].upperBound, order);
+                complementProbs[i] = Quadrature.ClenshawCurtis.Integrate(Integrand, negDistributions[i].GetLowerBound(), negDistributions[i].GetUpperBound(), order);
             }
 
             return complementProbs;
         }
 
         // Clenshaw-Curtis with the constant factored out, integrated over a common interval
-        public static double[] ComplementsClenshawCurtisInvariant(NegatedDistribution[] distributions, int order)
+        public static double[] ComplementsClenshawCurtisInvariant(IDistributionWrapper[] distributions, int order)
         {
             // Compute the evaluation points and weights
             double[] evalPoints = Quadrature.ClenshawCurtis.GetEvalPoints(order);
@@ -370,8 +319,8 @@ namespace Thesis
 
             for (int i = 0; i < distributions.Length; i++)
             {
-                intervalLowerLimit = Math.Min(distributions[i].lowerBound, intervalLowerLimit);
-                intervalUpperLimit = Math.Max(distributions[i].upperBound, intervalUpperLimit);
+                intervalLowerLimit = Math.Min(distributions[i].GetLowerBound(), intervalLowerLimit);
+                intervalUpperLimit = Math.Max(distributions[i].GetUpperBound(), intervalUpperLimit);
             }
 
             /*
@@ -426,20 +375,20 @@ namespace Thesis
         }
 
         /// <summary> Uses nested Clenshaw-Curtis quadrature on the alternative form with an invariant to compute the probability that each element is the minimum for a set of normal distributions to within a user-specified precision </summary>
-        /// <param name="distributions"> The set of normal distributions for which you want to compute P(X = min X) </param>
+        /// <param name="negDistributions"> The set of normal distributions for which you want to compute P(X = min X) </param>
         /// <param name="errorTolerance"> The maximum total error in P(X = min X) over all regions </param>
         /// <param name="maxIterations"> The maximum number of times the quadrature rule will be used, doubling in order each time </param>
         /// <returns></returns>
-        public static double[] ComplementsClenshawCurtisAutomatic(NegatedDistribution[] distributions, double errorTolerance = 10E-14, int maxIterations = 10)
+        public static double[] ComplementsClenshawCurtisAutomatic(IDistributionWrapper[] negDistributions, double errorTolerance = 10E-14, int maxIterations = 10)
         {
             // Compute the interval of integration
             double intervalLowerLimit = double.PositiveInfinity;
             double intervalUpperLimit = double.NegativeInfinity;
 
-            for (int i = 0; i < distributions.Length; i++)
+            for (int i = 0; i < negDistributions.Length; i++)
             {
-                intervalLowerLimit = Math.Min(distributions[i].lowerBound, intervalLowerLimit);
-                intervalUpperLimit = Math.Max(distributions[i].upperBound, intervalUpperLimit);
+                intervalLowerLimit = Math.Min(negDistributions[i].GetLowerBound(), intervalLowerLimit);
+                intervalUpperLimit = Math.Max(negDistributions[i].GetUpperBound(), intervalUpperLimit);
             }
 
             // Compute a linear transformation from that interval to [-1,1]
@@ -452,18 +401,18 @@ namespace Thesis
             // --- Initialize the Vectors ---
             int order = 32; // Start with a 33-point CC rule
             double errorSum = double.PositiveInfinity;
-            double[] errors = new double[distributions.Length];
-            double[] complements = new double[distributions.Length];
+            double[] errors = new double[negDistributions.Length];
+            double[] complements = new double[negDistributions.Length];
             double[] weights = Quadrature.ClenshawCurtis.GetWeights(order);
             double[] X = Quadrature.ClenshawCurtis.GetEvalPoints(order); // Eval points in Z
             for (int i = 0; i < X.Length; i++) { X[i] = xOfz(X[i]); } // Convert from Z to X
             double[] C = new double[X.Length]; // The invariant product for each X value, without weights
-            bool[] isFinished = new bool[distributions.Length]; // Keeps track of which regions are already at the desired precision
+            bool[] isFinished = new bool[negDistributions.Length]; // Keeps track of which regions are already at the desired precision
             for (int i = 0; i < C.Length; i++)
             {
                 C[i] = 1;
-                for (int j = 0; j < distributions.Length; j++)
-                { C[i] *= distributions[j].CumulativeDistribution(X[i]); }
+                for (int j = 0; j < negDistributions.Length; j++)
+                { C[i] *= negDistributions[j].CumulativeDistribution(X[i]); }
             }
 
             // --- Iterate higher order quadrature rules until desired precision is obtained ---
@@ -473,10 +422,10 @@ namespace Thesis
                 // Each iteration replaces these vectors with expanded versions. Half + 1 of the entries are the old entries, and the other nearly half are freshly computed.
                 // weights[] is the exception: it is completely replaced each time.
 
-                double[] newComplements = new double[distributions.Length];
+                double[] newComplements = new double[negDistributions.Length];
 
                 // Update discard complement probability vector
-                for (int i = 0; i < distributions.Length; i++)
+                for (int i = 0; i < negDistributions.Length; i++)
                 {
                     // Skip if this element is at the desired accuracy already
                     if (iteration > 1 && isFinished[i]) // errors[i] < errorTolerance / distributions.Length
@@ -488,10 +437,10 @@ namespace Thesis
                     newComplements[i] = 0;
                     for (int j = 0; j < C.Length; j++)
                     {
-                        double CDFij = distributions[i].CumulativeDistribution(X[j]);
+                        double CDFij = negDistributions[i].CumulativeDistribution(X[j]);
                         if (CDFij > 0)
                         {
-                            newComplements[i] += distributions[i].Density(X[j]) * C[j] * weights[j] / CDFij;
+                            newComplements[i] += negDistributions[i].Density(X[j]) * C[j] * weights[j] / CDFij;
                         }
                     }
                     newComplements[i] *= a; // Multiply by the derivative dx/dz
@@ -507,7 +456,7 @@ namespace Thesis
                         // Detect if finished, which requires the error estimate for the ith term to be decreasing and less than its fair share of the total error tolerance
                         if (!isFinished[i]
                             && i > 1
-                            && newError < errorTolerance / distributions.Length
+                            && newError < errorTolerance / negDistributions.Length
                             && newError < errors[i]) { isFinished[i] = true; }
                         errors[i] = newError;
                         errorSum += errors[i];
@@ -549,8 +498,8 @@ namespace Thesis
                     int slot = 2 * i + 1;
                     newX[slot] = xOfz(entries[i]); // Convert from Z to X
                     newC[slot] = 1;
-                    for (int j = 0; j < distributions.Length; j++)
-                    { newC[slot] *= distributions[j].CumulativeDistribution(newX[slot]); }
+                    for (int j = 0; j < negDistributions.Length; j++)
+                    { newC[slot] *= negDistributions[j].CumulativeDistribution(newX[slot]); }
                 }
 
                 X = newX;
@@ -561,9 +510,9 @@ namespace Thesis
         }
 
 
-        public static double[] ComplementsSimpson38Automatic(NegatedDistribution[] distributions, double errorTolerance = 10E-14, int initialSteps = 33, int maxIterations = 10)
+        public static double[] ComplementsSimpson38Automatic(IDistributionWrapper[] negDistributions, double errorTolerance = 10E-14, int initialSteps = 33, int maxIterations = 10)
         {
-            double[] output = ComplementsSimpsons38(distributions, initialSteps);
+            double[] output = ComplementsSimpsons38(negDistributions, initialSteps);
             for (int i = 1; i < maxIterations; i++)
             {
                 double error = 0;
@@ -574,22 +523,22 @@ namespace Thesis
                 error = Math.Abs(1 - error);
                 if (error < errorTolerance) { break; }
 
-                output = ComplementsSimpsons38(distributions, (int)(initialSteps * Math.Pow(2, i)));
+                output = ComplementsSimpsons38(negDistributions, (int)(initialSteps * Math.Pow(2, i)));
             }
             return output;
         }
 
         // Monte carlo here, don't mind me
-        public static double[] ComplementsMonteCarlo(NegatedDistribution[] distributions, int iterations = 1000000)
+        public static double[] ComplementsMonteCarlo(IDistributionWrapper[] negDistributions, int iterations = 1000000)
         {
-            double[] bestCounts = new double[distributions.Length];
+            double[] bestCounts = new double[negDistributions.Length];
             for (int i = 0; i < iterations; i++)
             {
-                double bestObserved = distributions[0].Sample();
+                double bestObserved = negDistributions[0].Sample();
                 int bestIdx = 0;
-                for (int j = 1; j < distributions.Length; j++)
+                for (int j = 1; j < negDistributions.Length; j++)
                 {
-                    double observed = distributions[j].Sample();
+                    double observed = negDistributions[j].Sample();
                     if (observed < bestObserved)
                     {
                         bestObserved = observed;
@@ -599,7 +548,7 @@ namespace Thesis
                 bestCounts[bestIdx]++;
             }
             // Divide by the number of total observations
-            for (int i = 0; i < distributions.Length; i++)
+            for (int i = 0; i < negDistributions.Length; i++)
             {
                 bestCounts[i] = bestCounts[i] / iterations;
             }

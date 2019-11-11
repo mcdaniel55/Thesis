@@ -657,7 +657,7 @@ namespace Thesis
 
             // Temp
             Program.logger.WriteLine("CC Auto Complements:");
-            double[] vals = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(DiscardProbabilityComputation.NegateNormalDistributions(dists));
+            double[] vals = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(NegatedDistribution.NegateNormalDistributions(dists));
             double sum = 0;
             for (int i = 0; i < dists.Length; i++)
             {

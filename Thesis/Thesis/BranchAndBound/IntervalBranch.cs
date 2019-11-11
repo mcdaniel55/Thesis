@@ -9,7 +9,7 @@ namespace Thesis.BranchAndBound
         /// <summary> The supremum of the interval </summary>
         public double End { get; private set; }
         /// <summary> The range of the values contained in the interval </summary>
-        private double range;
+        private readonly double range;
 
         /// <summary> Creates a new interval with the designated start and end points </summary>
         /// <param name="start"> A finite number less than end </param>

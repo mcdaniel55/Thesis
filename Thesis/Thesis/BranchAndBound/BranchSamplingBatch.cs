@@ -25,7 +25,7 @@ namespace Thesis.BranchAndBound
         /// <param name="output"></param>
         /// <param name="sampleSize"></param>
         /// <param name="FitnessFunction"></param>
-        public void SampleNonAlloc(double[] output, Func<T,double> FitnessFunction, int SampleSize)
+        public void SampleNonAlloc(double[] output, Func<T,double> FitnessFunction)
         {
             T input;
             Branch.rand = rand; // Point the branch's RNG to the desired one
@@ -41,7 +41,7 @@ namespace Thesis.BranchAndBound
                 }
             }
             
-            this.SampleSize = SampleSize;
+            this.SampleSize = output.Length;
         }
     }
 }

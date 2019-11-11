@@ -56,8 +56,8 @@ namespace Thesis
         public static void RunIntroOptimization()
         {
             var solutionSpace = new IntervalBranch(0, 3.2);
-            var bb = new SIDBranchAndBound<double>(solutionSpace, FitnessFunctions.ExampleFunction, GuidingParameter.LowerMean);
-            var result = bb.BranchAndBound(50, 8, 0.95, false);
+            var bb = new SIDBranchAndBound<double>(solutionSpace, FitnessFunctions.ExampleFunction, GuidingParameter.OneOverNthQuantile);
+            var result = bb.BranchAndBound(500, 8, 0.95, false);
             Program.logger.WriteLine("Intro Optimization Results:");
             for (int i = 0; i < result.Length; i++)
             {

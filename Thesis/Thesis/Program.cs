@@ -30,9 +30,9 @@ namespace Thesis
 
             //Tests.TestPickands();
 
-            Tests.TestGEV();
+            //Tests.TestGEV();
 
-            //Tests.RunIntroOptimization();
+            Tests.RunIntroOptimization();
 
             Console.WriteLine("Done.");
             Console.ReadLine();

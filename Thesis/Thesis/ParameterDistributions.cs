@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using MathNet.Numerics;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.Optimization;
 
 namespace Thesis
 {
@@ -79,7 +80,7 @@ namespace Thesis
 
             // Start by computing a tail estimate. The PBDH theorem says this should be GPD shaped. 
             // We are using a small amount of smoothing on the ECDF as well here
-            var pickandsApprox = new PickandsApproximation(data, method: PickandsApproximation.FittingMethod.BFGS_MSE);
+            var pickandsApprox = new PickandsApproximation(data, method: PickandsApproximation.FittingMethod.Pickands_SupNorm);
             // Bootstrap observations of the max under this model
             for (int i = 0; i < bootstrapStorage.Length; i++)
             {
@@ -94,12 +95,13 @@ namespace Thesis
             // --- Optimize to find the best-fit GEV model for these observations ---
 
             #region Helper Methods
-            double FitnessApproxModel(GEV model)
+            double FitnessSquaredError(GEV model)
             {
                 double val = 0;
                 for (int i = 0; i < bootstrapStorage.Length; i++)
                 {
-                    val += Math.Pow(model.CumulativeDistribution(bootstrapStorage[i]) - i * 1.0 / bootstrapStorage.Length, 2);
+                    double deviation = model.CumulativeDistribution(bootstrapStorage[i]) - i * 1.0 / bootstrapStorage.Length;
+                    val += deviation * deviation;
                 }
                 return val;
             }
@@ -107,12 +109,16 @@ namespace Thesis
             GEV OptimizeBFGS(Func<Vector<double>, double> objectiveFunc, double initialShape, double initialScale, double initialLocation)
             {
                 // Formatted by shape, scale, location
-                var lowerBounds = CreateVector.DenseOfArray(new double[] { -10, Math.Min(-3 * initialScale, 3 * initialScale), Math.Min(-3 * initialLocation, 3 * initialLocation) });
-                var upperBounds = CreateVector.DenseOfArray(new double[] { 10, Math.Max(-3 * initialScale, 3 * initialScale), Math.Max(-3 * initialLocation, 3 * initialLocation) });
+                var lowerBounds = CreateVector.DenseOfArray(new double[] { -3, Math.Min(-3 * initialScale, 3 * initialScale), Math.Min(-3 * initialLocation, 3 * initialLocation) });
+                var upperBounds = CreateVector.DenseOfArray(new double[] { 3, Math.Max(-3 * initialScale, 3 * initialScale), Math.Max(-3 * initialLocation, 3 * initialLocation) });
                 var initialGuess = CreateVector.DenseOfArray(new double[] { initialShape, initialScale, initialLocation });
 
-                var min = FindMinimum.OfFunctionConstrained(objectiveFunc, lowerBounds, upperBounds, initialGuess);
-                return new GEV(min[2], min[1], min[0], Program.rand);
+                //var min = FindMinimum.OfFunctionConstrained(objectiveFunc, lowerBounds, upperBounds, initialGuess, 1E-05, 1E-03, 0.1);
+
+                var result = new BfgsBMinimizer(1E-02, 1E-02, 1E-01, 500).FindMinimum(ObjectiveFunction.Value(objectiveFunc), lowerBounds, upperBounds, initialGuess);
+                var min = result.MinimizingPoint;
+
+                return new GEV(min[2], min[1], min[0], rand);
             }
             #endregion
 
@@ -120,10 +126,9 @@ namespace Thesis
             double scaleGuess = Math.Sqrt(6 * Statistics.Variance(bootstrapStorage)) / Math.PI; // 
             double locationGuess = Statistics.Median(bootstrapStorage) + scaleGuess * Math.Log(Math.Log(2));
 
-            double ObjectiveFunction(Vector<double> x) => FitnessApproxModel(new GEV(x[2], x[1], x[0], Program.rand));
-            GEV fittedApproxModel = OptimizeBFGS(ObjectiveFunction, pickandsApprox.c, scaleGuess, locationGuess);
-            return new GEV()
-
+        double ObjFunction(Vector<double> x) => FitnessSquaredError(new GEV(x[2], x[1], x[0], rand));
+        GEV fittedApproxModel = OptimizeBFGS(ObjFunction, Math.Max(-3, Math.Min(pickandsApprox.c, 3)), scaleGuess, locationGuess);
+            return new GEV(data[data.Length - 1], fittedApproxModel.scale, fittedApproxModel.shape, rand);
         }
 
     }

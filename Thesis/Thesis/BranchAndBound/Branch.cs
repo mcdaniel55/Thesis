@@ -11,8 +11,8 @@ namespace Thesis.BranchAndBound
         public int BranchLevel { get; private set; }
         public IContinuousDistribution SamplingDistribution { get; private set; }
         /// <summary> The best (smallest) observation of the fitness function </summary>
-        public double MinimumObservedFitness { get; private set; }
-        public object BestObservedSolution { get; private set; }
+        //public double MinimumObservedFitness { get; private set; }
+        //public object BestObservedSolution { get; private set; }
         public Random rand;
         #endregion
 
@@ -37,7 +37,7 @@ namespace Thesis.BranchAndBound
         protected Branch(Random rand)
         {
             this.rand = rand ?? Program.rand;
-            MinimumObservedFitness = double.PositiveInfinity;
+            //MinimumObservedFitness = double.PositiveInfinity;
         }
         #endregion
     }
