@@ -33,6 +33,7 @@ namespace Thesis
             //Tests.TestGEV();
 
             Tests.RunIntroOptimization();
+            //Tests.TestNewTailFittingV4();
 
             Console.WriteLine("Done.");
             Console.ReadLine();

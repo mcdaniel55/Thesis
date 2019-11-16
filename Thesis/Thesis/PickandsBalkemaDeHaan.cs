@@ -322,6 +322,179 @@ namespace Thesis
             }
         }
 
+        // Gets the observations above u, and appends u as the first element
+        internal static IList<double> GetTailData(IList<double> sortedData, double uVal)
+        {
+            var list = new List<double>(sortedData);
+            list.RemoveAll(x => x <= uVal);
+            list.Insert(0, uVal);
+            // Testing
+            double avgdif = (sortedData[sortedData.Count - 1] - sortedData[sortedData.Count - 3]) / 2;
+            list.Add(sortedData[sortedData.Count - 1] + avgdif); // Haven't noticed any differences from this yet
+#if DEBUG
+            if (list.Count < 2)
+            {
+                throw new Exception("Illegal state: list must have at least two elements.");
+            }
+#endif
+            return list;
+        }
+
+        // Computes the exact first moment of the tail ECDF interpolant
+        internal static double TailMean(IList<double> tailData)
+        {
+            double sum = 0.5 * (tailData[0] + tailData[tailData.Count - 1]); // Half weight to end points
+            for (int i = 1; i < tailData.Count - 1; i++) { sum += tailData[i]; }
+            return sum / (tailData.Count - 1);
+        }
+
+        // Uses the observations that are greater than u to compute the variance of the upper tail under a linear interpolation of the empirical distribution
+        // Note: May be less numerically stable than the second moment. This seems not to work as well as E(X^2) - E(X)^2
+        internal static double TailVariance(IList<double> tailData, double xBar)
+        {
+            double Summand(double x1, double x2)
+            {
+                return (x2 * x2 * x2 / 3.0
+                    - xBar * x2 * x2
+                    + xBar * xBar * x2
+                    - x1 * x1 * x1 / 3.0
+                    + xBar * x1 * x1
+                    - xBar * xBar * x1)
+                    / (x2 - x1);
+            }
+
+            double sum = 0;
+            for (int i = 0; i < tailData.Count; i++)
+            {
+                sum += Summand(i, i + 1);
+            }
+
+            return sum / tailData.Count; // Divide by n
+        }
+
+        // Computes the exact second moment of the tail ECDF interpolant
+        internal static double TailSecondMoment(IList<double> tailData) // there must be at least two elements in the upper tail here, and u is naturally < x_n so this is fine
+        {
+            var x = tailData; // Aliases to shorten the expression
+            var n = tailData.Count;
+            double sum = x[0] * x[0] + x[n - 1] * x[n - 1] + x[0] * x[1]; // x_0^2 + x_n^2 + x0 * x1 in the labelling on the board
+            for (int i = 1; i < n - 1; i++) { sum += x[i] * x[i + 1] + 2 * x[i] * x[i]; }
+            return sum / (3 * n - 3);
+        }
+
+        // Estimate the shape and scale parameters given a choice of u, using method of moments estimation
+        internal static void EstimateParamsMOM(IList<double> tailData, out double scaleParam, out double shapeParam)
+        {
+            double m1 = TailMean(tailData);
+            double m2 = TailSecondMoment(tailData);
+            double variance = m2 - m1 * m1;
+            double xBarMinusMu = m1 - tailData[0]; // Transition point is tailData[0]
+
+            shapeParam = 0.5 * (1 - xBarMinusMu * xBarMinusMu / variance);
+            scaleParam = xBarMinusMu * (1 - shapeParam);
+
+#if DEBUG
+            if (scaleParam < 0)
+            {
+                throw new Exception("Scale cannot be negative.");
+            }
+            //Program.logger.WriteLine($"Variance: {TailVariance(tailData, m1)} m2-m1^2: {variance}");
+#endif
+        }
+
+        internal static void ApproximateExcessDistributionParametersV4(IList<double> sortedData, out double a, out double c, out double u)
+        {
+            // The upper tail is defined here by an ECDF interpolating linearly from (u,0) to (x_i, i/n) for data x_1, x_2, ..., x_n all greater than u.
+            // This is the model from which we compute the upper tail parameters, using method of moments.
+
+            double WeightedMidpointMSE(IList<double> tailData, double scaleParam, double shapeParam)
+            {
+                int n = tailData.Count;
+
+                double sum = 0;
+                for (int i = 0; i < n - 1 ; i++) // n - 1?
+                {
+                    double GHat = TailCDF(0.5 * (tailData[i] + tailData[i + 1]) - tailData[0], scaleParam, shapeParam);
+                    double residual = (2.0 * i + 1) / (2.0 * n) - GHat; // 2i + 3?
+                    sum += residual * residual;
+                }
+                return Math.Exp(5.54517744448 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.125 in shape causes a doubling of cost to fitness
+                return Math.Exp(3.4657359028 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.2 in shape causes a doubling of cost to fitness
+                return (0.5 * Math.Exp(shapeParam * shapeParam)) * sum / (n - 1);
+                return Math.Log(1 + Math.Abs(shapeParam * shapeParam)) * sum / (n - 1);// This is good
+                return (1 + Math.Abs(shapeParam)) * sum / (n - 1); // Weighted so that smaller magnitudes of the shape parameter are preferred
+            }
+
+            double GetScore(double uval, out double scaleParam, out double shapeParam)
+            {
+                var tailData = GetTailData(sortedData, uval);
+                EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
+                scaleParam = scaleEst;
+                shapeParam = shapeEst;
+                return WeightedMidpointMSE(tailData, scaleEst, shapeEst);
+            }
+
+            // Try 10 choices of u evenly spaced over (x_0, x_n-3)
+            var uValues = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], sortedData.Count / 4);
+            double bestU = double.NegativeInfinity;
+            double bestA = double.NegativeInfinity;
+            double bestC = double.NegativeInfinity;
+            double bestScore = double.PositiveInfinity;
+            for (int i = 0; i < uValues.Length; i++)
+            {
+                double score = GetScore(uValues[i], out double scaleEst, out double shapeEst);
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestU = uValues[i];
+                    bestA = scaleEst;
+                    bestC = shapeEst;
+                }
+            }
+            // Refine the best so far by bisection search
+            double delta = uValues[1] - uValues[0];
+            for (int i = 0; i < 10; i++)
+            {
+                delta *= 0.5;
+                double forwardU = Math.Min(bestU + delta, sortedData[sortedData.Count - 3]); // Don't go so high that we don't have data to work with
+                double forwardScore = GetScore(forwardU, out double forwardScale, out double forwardShape);
+                double backwardScore = GetScore(bestU - delta, out double backwardScale, out double backwardShape);
+                if (forwardScore < bestScore)
+                {
+                    bestScore = forwardScore;
+                    bestU = forwardU;
+                    bestA = forwardScale;
+                    bestC = forwardShape;
+                }
+                if (backwardScore < bestScore)
+                {
+                    bestU -= delta;
+                    bestA = backwardScale;
+                    bestC = backwardShape;
+                }
+            }
+
+            u = bestU;
+            a = bestA;
+            c = bestC;
+
+            Program.logger.WriteLine($"Selected u:{bestU}, a:{bestA}, c:{bestC}, fitness:{bestScore}");
+
+            // Testing
+            var uvals = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], 1000);
+            Program.logger.WriteLine("u,a,c,fitness");
+            for (int i = 0; i < uvals.Length; i++)
+            {
+                double transitionX = uvals[i];
+                var tailData = GetTailData(sortedData, transitionX);
+                EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
+                double fitness = WeightedMidpointMSE(tailData, scaleEst, shapeEst);
+                Program.logger.WriteLine($"{transitionX},{scaleEst},{shapeEst},{fitness}");
+            }
+            
+        }
+
+
         /// <summary> An optimization for finding the best m, a, and c values, which is not designed for performance </summary>
         internal static void ApproximateExcessDistributionParametersSlow(IList<double> data, out double a, out double c, out int m)
         {
@@ -443,7 +616,7 @@ namespace Thesis
         readonly List<double> sortedData;
         readonly Random rand;
 
-        public enum FittingMethod { Pickands_SupNorm, BFGS_MSE, Moments_MSE }
+        public enum FittingMethod { Pickands_SupNorm, BFGS_MSE, Moments_MSE, V4 }
 
         public PickandsApproximation(IList<double> data, FittingMethod method = FittingMethod.Pickands_SupNorm, Random rand = null)
         {
@@ -459,18 +632,34 @@ namespace Thesis
                     // Compute the index of the closest element that is at or before u in the data
                     int transitionIndex = sortedData.BinarySearch(transitionAbscissa);
                     if (transitionIndex < 0) transitionIndex = ~transitionIndex;
-                    transitionProportion = transitionIndex * 1.0 / sortedData.Count;
+                    transitionProportion = transitionIndex * 1.0 / sortedData.Count; // Shouldn't this be + 1 here?
                     break;
 
                 case FittingMethod.Moments_MSE:
-                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersMoments(data, out a, out c, out m);
-                    transitionProportion = (sortedData.Count - m + 1.0) / data.Count;
+                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersMoments(sortedData, out a, out c, out m);
+                    transitionProportion = (sortedData.Count - m + 1.0) / sortedData.Count;
                     transitionAbscissa = sortedData[sortedData.Count - m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
                     break;
-                    
+
+                case FittingMethod.V4:
+                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersV4(sortedData, out a, out c, out transitionAbscissa);
+                    int transitionIdx = sortedData.BinarySearch(transitionAbscissa);
+                    if (transitionIdx < 0) 
+                    {
+                        transitionIdx = ~transitionIdx; // Now the index of the next-largest element 
+                        if (transitionIdx == 0) { transitionProportion = 0; break; }
+                        transitionProportion = Interpolation.Lerp(
+                            sortedData[transitionIdx - 1], transitionIdx * 1.0 / sortedData.Count, 
+                            sortedData[transitionIdx], (transitionIdx + 1) * 1.0 / sortedData.Count, 
+                            transitionAbscissa);
+                        break;
+                    }
+                    transitionProportion = (transitionIdx + 1) * 1.0 / sortedData.Count;
+                    break;
+
                 default:
                     PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(sortedData, out a, out c, out m); // Write m to transitionIndex
-                    transitionProportion = (sortedData.Count - 4 * m + 1.0) / data.Count;
+                    transitionProportion = (sortedData.Count - 4 * m + 1.0) / sortedData.Count;
                     transitionAbscissa = sortedData[sortedData.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
                     break;
 

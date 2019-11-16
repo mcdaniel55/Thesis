@@ -80,7 +80,7 @@ namespace Thesis
 
             // Start by computing a tail estimate. The PBDH theorem says this should be GPD shaped. 
             // We are using a small amount of smoothing on the ECDF as well here
-            var pickandsApprox = new PickandsApproximation(data, method: PickandsApproximation.FittingMethod.Pickands_SupNorm);
+            var pickandsApprox = new PickandsApproximation(data, method: PickandsApproximation.FittingMethod.V4);
             // Bootstrap observations of the max under this model
             for (int i = 0; i < bootstrapStorage.Length; i++)
             {
@@ -100,7 +100,7 @@ namespace Thesis
                 double val = 0;
                 for (int i = 0; i < bootstrapStorage.Length; i++)
                 {
-                    double deviation = model.CumulativeDistribution(bootstrapStorage[i]) - i * 1.0 / bootstrapStorage.Length;
+                    double deviation = model.CumulativeDistribution(bootstrapStorage[i]) - (i + 1) * 1.0 / bootstrapStorage.Length;
                     val += deviation * deviation;
                 }
                 return val;
@@ -113,17 +113,17 @@ namespace Thesis
                 var upperBounds = CreateVector.DenseOfArray(new double[] { 3, Math.Max(-3 * initialScale, 3 * initialScale), Math.Max(-3 * initialLocation, 3 * initialLocation) });
                 var initialGuess = CreateVector.DenseOfArray(new double[] { initialShape, initialScale, initialLocation });
 
-                //var min = FindMinimum.OfFunctionConstrained(objectiveFunc, lowerBounds, upperBounds, initialGuess, 1E-05, 1E-03, 0.1);
+                var min = FindMinimum.OfFunctionConstrained(objectiveFunc, lowerBounds, upperBounds, initialGuess, 1E-05, 1E-03, 0.1);
 
-                var result = new BfgsBMinimizer(1E-02, 1E-02, 1E-01, 500).FindMinimum(ObjectiveFunction.Value(objectiveFunc), lowerBounds, upperBounds, initialGuess);
-                var min = result.MinimizingPoint;
+                //var result = new BfgsBMinimizer(1E-02, 1E-02, 1E-01, 500).FindMinimum(ObjectiveFunction.Value(objectiveFunc), lowerBounds, upperBounds, initialGuess);
+                //var min = result.MinimizingPoint;
 
                 return new GEV(min[2], min[1], min[0], rand);
             }
             #endregion
 
             // Initial guesses (based on the case when shape = 0)
-            double scaleGuess = Math.Sqrt(6 * Statistics.Variance(bootstrapStorage)) / Math.PI; // 
+            double scaleGuess = Math.Sqrt(6 * Statistics.Variance(bootstrapStorage)) / Math.PI;
             double locationGuess = Statistics.Median(bootstrapStorage) + scaleGuess * Math.Log(Math.Log(2));
 
         double ObjFunction(Vector<double> x) => FitnessSquaredError(new GEV(x[2], x[1], x[0], rand));

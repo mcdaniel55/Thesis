@@ -13,7 +13,7 @@ namespace Thesis
         /// <param name="b">The second coordinate of the first point</param>
         /// <param name="c">The first coordinate of the second point</param>
         /// <param name="d">The second coordinate of the second point</param>
-        /// <param name="x">The location in [a,c] at which to evaluate the interpolant</param>
+        /// <param name="x">The abscissa at which to evaluate the interpolating line</param>
         /// <returns></returns>
         public static double Lerp(double a, double b, double c, double d, double x)
         {

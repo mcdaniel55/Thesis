@@ -307,7 +307,7 @@ namespace Thesis
             //for (int i = 0; i < smoothedData.Length; i++) { smoothedData[i] = 0.5 * (sample[i] + sample[i + 1]); }
             //var pickandsApprox = new PickandsApproximation(smoothedData, method: PickandsApproximation.FittingMethod.Pickands_SupNorm); // Construct a Pickands tail approx from the sample
 
-            var pickandsApprox = new PickandsApproximation(sample, method: PickandsApproximation.FittingMethod.BFGS_MSE); // Construct a Pickands tail approx from the sample
+            var pickandsApprox = new PickandsApproximation(sample, method: PickandsApproximation.FittingMethod.V4); // Construct a Pickands tail approx from the sample
             // Bootstrap observations of the distribution of the sample maximum from the Pickands model
             double[] approxObservations = new double[observations.Length];
             for (int i = 0; i < approxObservations.Length; i++)
@@ -438,6 +438,22 @@ namespace Thesis
             double cdfval = PickandsBalkemaDeHaan.TailCDF(0.4, newVersion.a, newVersion.c);
             Console.WriteLine($"TailCDF(0.4):{cdfval} QF(that): {PickandsBalkemaDeHaan.TailQuantileFunction(cdfval, newVersion.a, newVersion.c)}");
             */
+        }
+
+        public static void TestNewTailFittingV4()
+        {
+            var dist = new Beta(2, 2);
+
+            var data = new double[1000];
+            dist.Samples(data);
+            Sorting.Sort(data);
+            Program.logger.WriteLine("idx,data,ECDF");
+            for (int i = 0; i < data.Length; i++)
+            {
+                Program.logger.WriteLine($"{i},{data[i]},{(i + 1.0) / data.Length}");
+            }
+
+            PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersV4(data, out double a, out double c, out double u);
         }
 
     }
