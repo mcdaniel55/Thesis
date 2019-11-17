@@ -329,8 +329,8 @@ namespace Thesis
             list.RemoveAll(x => x <= uVal);
             list.Insert(0, uVal);
             // Testing
-            double avgdif = (sortedData[sortedData.Count - 1] - sortedData[sortedData.Count - 3]) / 2;
-            list.Add(sortedData[sortedData.Count - 1] + avgdif); // Haven't noticed any differences from this yet
+            //double avgdif = (sortedData[sortedData.Count - 1] - sortedData[sortedData.Count - 3]) / 2;
+            //list.Add(sortedData[sortedData.Count - 1] + avgdif); // Haven't noticed any differences from this yet
 #if DEBUG
             if (list.Count < 2)
             {
@@ -418,10 +418,11 @@ namespace Thesis
                     double residual = (2.0 * i + 1) / (2.0 * n) - GHat; // 2i + 3?
                     sum += residual * residual;
                 }
-                return Math.Exp(5.54517744448 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.125 in shape causes a doubling of cost to fitness
-                return Math.Exp(3.4657359028 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.2 in shape causes a doubling of cost to fitness
-                return (0.5 * Math.Exp(shapeParam * shapeParam)) * sum / (n - 1);
-                return Math.Log(1 + Math.Abs(shapeParam * shapeParam)) * sum / (n - 1);// This is good
+                //return Math.Exp(5.54517744448 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.125 in shape causes a doubling of cost to fitness
+                //return Math.Exp(3.4657359028 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.2 in shape causes a doubling of cost to fitness
+                //return (0.5 * Math.Exp(shapeParam * shapeParam)) * sum / (n - 1);
+                //return Math.Log(1 + Math.Abs(shapeParam * shapeParam)) * sum / (n - 1);// This is good
+                return (1 + Math.Pow(5, Math.Abs(shapeParam))) * sum / (n - 1);
                 return (1 + Math.Abs(shapeParam)) * sum / (n - 1); // Weighted so that smaller magnitudes of the shape parameter are preferred
             }
 
@@ -435,7 +436,7 @@ namespace Thesis
             }
 
             // Try 10 choices of u evenly spaced over (x_0, x_n-3)
-            var uValues = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], sortedData.Count / 4);
+            var uValues = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 5], sortedData.Count / 4);
             double bestU = double.NegativeInfinity;
             double bestA = double.NegativeInfinity;
             double bestC = double.NegativeInfinity;
@@ -478,10 +479,10 @@ namespace Thesis
             a = bestA;
             c = bestC;
 
-            Program.logger.WriteLine($"Selected u:{bestU}, a:{bestA}, c:{bestC}, fitness:{bestScore}");
+            //Program.logger.WriteLine($"Selected u:{bestU}, a:{bestA}, c:{bestC}, fitness:{bestScore}");
 
             // Testing
-            var uvals = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], 1000);
+            /*var uvals = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], 1000);
             Program.logger.WriteLine("u,a,c,fitness");
             for (int i = 0; i < uvals.Length; i++)
             {
@@ -490,7 +491,7 @@ namespace Thesis
                 EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
                 double fitness = WeightedMidpointMSE(tailData, scaleEst, shapeEst);
                 Program.logger.WriteLine($"{transitionX},{scaleEst},{shapeEst},{fitness}");
-            }
+            }*/
             
         }
 

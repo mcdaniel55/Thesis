@@ -91,6 +91,7 @@ namespace Thesis
                 }
                 bootstrapStorage[i] = max;
             }
+            Sorting.Sort(bootstrapStorage);
 
             // --- Optimize to find the best-fit GEV model for these observations ---
 
@@ -109,11 +110,11 @@ namespace Thesis
             GEV OptimizeBFGS(Func<Vector<double>, double> objectiveFunc, double initialShape, double initialScale, double initialLocation)
             {
                 // Formatted by shape, scale, location
-                var lowerBounds = CreateVector.DenseOfArray(new double[] { -3, Math.Min(-3 * initialScale, 3 * initialScale), Math.Min(-3 * initialLocation, 3 * initialLocation) });
-                var upperBounds = CreateVector.DenseOfArray(new double[] { 3, Math.Max(-3 * initialScale, 3 * initialScale), Math.Max(-3 * initialLocation, 3 * initialLocation) });
+                var lowerBounds = CreateVector.DenseOfArray(new double[] { Math.Min(-5, 3 * initialShape), initialScale / 3.0, initialLocation - 5 * initialScale });
+                var upperBounds = CreateVector.DenseOfArray(new double[] { Math.Min(3, 3 * Math.Abs(initialShape)), initialScale * 3.0, initialLocation + 5 * initialScale });
                 var initialGuess = CreateVector.DenseOfArray(new double[] { initialShape, initialScale, initialLocation });
 
-                var min = FindMinimum.OfFunctionConstrained(objectiveFunc, lowerBounds, upperBounds, initialGuess, 1E-05, 1E-03, 0.1);
+                var min = FindMinimum.OfFunctionConstrained(objectiveFunc, lowerBounds, upperBounds, initialGuess, 1E-05, 1E-03, 0.01, 10000);
 
                 //var result = new BfgsBMinimizer(1E-02, 1E-02, 1E-01, 500).FindMinimum(ObjectiveFunction.Value(objectiveFunc), lowerBounds, upperBounds, initialGuess);
                 //var min = result.MinimizingPoint;
@@ -122,13 +123,40 @@ namespace Thesis
             }
             #endregion
 
-            // Initial guesses (based on the case when shape = 0)
-            double scaleGuess = Math.Sqrt(6 * Statistics.Variance(bootstrapStorage)) / Math.PI;
-            double locationGuess = Statistics.Median(bootstrapStorage) + scaleGuess * Math.Log(Math.Log(2));
+            // Initial guesses
+            double shapeGuess = Math.Max(-5, Math.Min(pickandsApprox.c, 3)); // Shape in PBD is also an estimate of the shape of the GEV
+            double locationGuess, scaleGuess;
+            if (shapeGuess < 0)
+            {
+                double g1 = SpecialFunctions.Gamma(1 - shapeGuess);
+                double g2 = SpecialFunctions.Gamma(1 - 2 * shapeGuess);
+                scaleGuess = Math.Sqrt(Statistics.Variance(bootstrapStorage) * shapeGuess * shapeGuess / (g2 - g1 * g1));
+                locationGuess = Statistics.Mean(bootstrapStorage) - scaleGuess * (g1 - 1) / shapeGuess;
+            }
+            else
+            {
+                scaleGuess = Math.Sqrt(6 * Statistics.Variance(bootstrapStorage)) / Math.PI;
+                locationGuess = Statistics.Median(bootstrapStorage) + scaleGuess * Math.Log(Math.Log(2));
+            }
 
-        double ObjFunction(Vector<double> x) => FitnessSquaredError(new GEV(x[2], x[1], x[0], rand));
-        GEV fittedApproxModel = OptimizeBFGS(ObjFunction, Math.Max(-3, Math.Min(pickandsApprox.c, 3)), scaleGuess, locationGuess);
-            return new GEV(data[data.Length - 1], fittedApproxModel.scale, fittedApproxModel.shape, rand);
+            // Testing
+            /*
+            Program.logger.WriteLine($"Guesses: shape {shapeGuess} scale {scaleGuess} loc {locationGuess}");
+            Program.logger.WriteLine("Data to fit");
+            for (int i = 0; i < bootstrapStorage.Length; i++)
+            {
+                Program.logger.WriteLine($"{bootstrapStorage[i]}, {(i + 1.0) / bootstrapStorage.Length}");
+            }
+            */
+
+            // Optimize for the best fit
+            //double ObjFunction(Vector<double> x) => FitnessSquaredError(new GEV(x[2], x[1], x[0], rand));
+            //GEV fittedApproxModel = OptimizeBFGS(ObjFunction, shapeGuess, scaleGuess, locationGuess);
+            //return new GEV(data[data.Length - 1], fittedApproxModel.scale, fittedApproxModel.shape, rand);
+
+            // Skip opt
+            //return new GEV(data[data.Length - 1], scaleGuess, shapeGuess, rand); // Needs the data to be sorted ahead of time
+            return new GEV(locationGuess, scaleGuess, shapeGuess, rand); // Try this with the sample max instead of the locGuess
         }
 
     }

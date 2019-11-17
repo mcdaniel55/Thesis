@@ -382,12 +382,12 @@ namespace Thesis
         public static double[] ComplementsClenshawCurtisAutomatic(IDistributionWrapper[] negDistributions, double errorTolerance = 10E-14, int maxIterations = 10)
         {
             // Compute the interval of integration
-            double intervalLowerLimit = double.PositiveInfinity;
+            double intervalLowerLimit = double.NegativeInfinity;
             double intervalUpperLimit = double.NegativeInfinity;
 
             for (int i = 0; i < negDistributions.Length; i++)
             {
-                intervalLowerLimit = Math.Min(negDistributions[i].GetLowerBound(), intervalLowerLimit);
+                intervalLowerLimit = Math.Max(negDistributions[i].GetLowerBound(), intervalLowerLimit);
                 intervalUpperLimit = Math.Max(negDistributions[i].GetUpperBound(), intervalUpperLimit);
             }
 
@@ -471,7 +471,7 @@ namespace Thesis
                 // Check if all the probabilities add up to one
                 double totalProb = 0;
                 for (int i = 0; i < complements.Length; i++) { totalProb += complements[i]; }
-                bool probsSumToOne = Math.Abs(totalProb - 1.0) < 1E-12;
+                bool probsSumToOne = Math.Abs(totalProb - 1.0) < 10E-12;
 
                 // Handle the end of the iteration
                 if ((errorSum < errorTolerance && probsSumToOne /*&& allRegionsFinished*/) || iteration == maxIterations - 1)

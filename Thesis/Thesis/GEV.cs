@@ -109,12 +109,18 @@ namespace Thesis
             }
         }
 
+        private double Exponent(double x)
+        {
+            return Math.Pow(1 + shape * ((x - location) / scale), -1.0 / shape);
+        }
+
         public double CumulativeDistribution(double x)
         {
             double s = (x - location) / scale;
             if (shape == 0) return Math.Exp(-Math.Exp(-s));
             if (shape > 0 && s <= -1.0 / shape) return 0;
             if (shape < 0 && s >= -1.0 / shape) return 1;
+
             return Math.Exp(-Math.Pow(1 + shape * s, -1.0 / shape));
         }
 
@@ -124,7 +130,7 @@ namespace Thesis
             if (shape == 0) return Math.Exp(-s) * Math.Exp(-Math.Exp(-s));
             if (shape > 0 && s <= -1.0 / shape) return 0;
             if (shape < 0 && s >= -1.0 / shape) return 0;
-            return Math.Pow(1 + shape * s, -1.0 / shape - 1) * Math.Exp(-Math.Pow(1 + shape * s, -1.0 / shape));
+            return Math.Pow(1 + shape * s, -1.0 / shape - 1) * Math.Exp(-Math.Pow(1 + shape * s, -1.0 / shape)) / scale; // The / scale here is from the chain rule on the transformation S(x)
         }
 
         public double DensityLn(double x)
@@ -165,6 +171,12 @@ namespace Thesis
         public IEnumerable<double> Samples()
         {
             throw new NotImplementedException();
+        }
+
+        // Testing
+        public double CDFALT(double x)
+        {
+            return Math.Exp(-Exponent(x));
         }
     }
 }

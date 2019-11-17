@@ -43,7 +43,7 @@ namespace Thesis.BranchAndBound
             this.GuidingParam = GuidingParam;
         }
         
-        public Branch[] BranchAndBound(int sampleSize, int iterations, double confidenceLevel = 0.95, bool cullDuplicates = true)
+        public Branch[] BranchAndBound(int sampleSize, int iterations, double confidenceLevel = 0.95, bool cullDuplicates = true, bool multiThread = true)
         {
             // Sanity check the initial sample size
             if (sampleSize < 30) { throw new ArgumentOutOfRangeException("Sample size must be at least 30."); }
@@ -62,6 +62,8 @@ namespace Thesis.BranchAndBound
                 foreach (Branch branch in activeBranches) { if (branch != null) newActiveBranches.AddRange(branch.GetBranches()); }
 
                 Program.logger.WriteLine($"Branched to produce {newActiveBranches.Count} new regions.");
+                
+
                 // Cull duplicates if desired
                 if (cullDuplicates)
                 {
@@ -85,6 +87,12 @@ namespace Thesis.BranchAndBound
                 Program.logger.WriteLine($"Branching factor revised to {branchingFactor}");
                 activeBranches = newActiveBranches.ToArray();
 
+                // Print the list to the log
+                for (int i = 0; i < activeBranches.Length; i++)
+                {
+                    Program.logger.WriteLine($"{activeBranches[i].ToString()}");
+                }
+
                 // Storage for the estimating distribution of the guiding parameter of each branch
                 var parameterDistributions = new IContinuousDistribution[activeBranches.Length];
                 var upperBounds = new double[parameterDistributions.Length];
@@ -93,111 +101,138 @@ namespace Thesis.BranchAndBound
 
                 #region Sampling
                 // --- Sample the regions (now with more threads!) ---
-                int threadCount = Environment.ProcessorCount; // # of logical processors, including hyperthreading etc.
                 var batches = new BranchSamplingBatch<T>[activeBranches.Length];
                 // This provides deterministic RNG without race conditions for multithreaded execution at a modest memory cost
                 for (int i = 0; i < batches.Length; i++) { batches[i] = new BranchSamplingBatch<T>(activeBranches[i], new Xoshiro256StarStar(Program.rand.Next())); }
 
-                var tasks = new Task[threadCount];
-                for (int i = 0; i < tasks.Length; i++) { tasks[i] = null; } // Initialize the task array to null
-
-                // Reusable storage for each thread; each chunk of storage holds SampleSize many doubles, and is checked out for temporary use by a BranchSamplingBatch
-                var fitnessStorage = new double[threadCount][];
-                for (int i = 0; i < threadCount; i++) { fitnessStorage[i] = new double[sampleSize]; }
-                // Same for bootstrap sampling storage
-                var bootstrapStorage = new double[threadCount][];
-                for (int i = 0; i < threadCount; i++) { bootstrapStorage[i] = new double[BootstrapSampleSize]; }
-
-                int getAvailableTaskIndex()
+                if (multiThread)
                 {
-                    for (int i = 0; i < tasks.Length; i++) { if (tasks[i] == null || tasks[i].IsCompleted) { return i; } }
-                    return -1;
+                    int threadCount = Environment.ProcessorCount; // # of logical processors, including hyperthreading etc.
+                    
+                    var tasks = new Task[threadCount];
+                    for (int i = 0; i < tasks.Length; i++) { tasks[i] = null; } // Initialize the task array to null
+
+                    // Reusable storage for each thread; each chunk of storage holds SampleSize many doubles, and is checked out for temporary use by a BranchSamplingBatch
+                    var fitnessStorage = new double[threadCount][];
+                    for (int i = 0; i < threadCount; i++) { fitnessStorage[i] = new double[sampleSize]; }
+                    // Same for bootstrap sampling storage
+                    var bootstrapStorage = new double[threadCount][];
+                    for (int i = 0; i < threadCount; i++) { bootstrapStorage[i] = new double[BootstrapSampleSize]; }
+
+                    int getAvailableTaskIndex()
+                    {
+                        for (int i = 0; i < tasks.Length; i++) { if (tasks[i] == null || tasks[i].IsCompleted) { return i; } }
+                        return -1;
+                    }
+
+                    for (int i = 0; i < activeBranches.Length; i++)
+                    {
+                        int taskIdx = getAvailableTaskIndex();
+                        if (taskIdx > -1)
+                        {
+                            // Capture a copy of the current value of i; do not let the compiler use i in the closure of the lambda expression below
+                            int idx = i;
+
+                            tasks[taskIdx] = Task.Run(() => {
+                                // Run the sampling
+                                batches[idx].SampleNonAlloc(fitnessStorage[taskIdx], FitnessFunction);
+
+                                // Compute the estimating distribution of the guiding parameter
+                                switch (GuidingParam)
+                                {
+                                    case GuidingParameter.Mean:
+                                        {
+                                            Normal dist = ParameterDistributions.MeanCLT(fitnessStorage[taskIdx]);
+                                            parameterDistributions[idx] = dist;
+                                            // Assign upper and lower bounds
+                                            upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
+                                            lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
+                                            break;
+                                        }
+                                    case GuidingParameter.Median:
+                                        {
+                                            // Sort the fitness data in place
+                                            Sorting.Sort(fitnessStorage[taskIdx]);
+                                            Normal dist = ParameterDistributions.MedianBootstrapMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
+                                            parameterDistributions[idx] = dist;
+                                            // Assign upper and lower bounds
+                                            upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
+                                            lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
+                                            break;
+                                        }
+                                    case GuidingParameter.LowerMean:
+                                        {
+                                            Normal dist = ParameterDistributions.MeanOfLessThanQuantile(fitnessStorage[taskIdx], 0.5);
+                                            parameterDistributions[idx] = dist;
+                                            // Assign upper and lower bounds
+                                            upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
+                                            lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
+                                            break;
+                                        }
+                                    case GuidingParameter.OneOverNthQuantile:
+                                        {
+                                            // Negate the sample first, so the new upper tail is the old lower tail
+                                            /* Deprecated: In-place negation for sorted data. The sorting is handled by Pickands, so it doesn't matter.
+                                            double temp;
+                                            // Swap elements and negate to preserve ordering
+                                            for (int j = 0; j < fitnessStorage[taskIdx].Length / 2; j++)
+                                            {
+                                                temp = fitnessStorage[taskIdx][j];
+                                                fitnessStorage[taskIdx][j] = -fitnessStorage[taskIdx][sampleSize - j - 1];
+                                                fitnessStorage[taskIdx][sampleSize - j - 1] = -temp;
+                                            }
+                                            // Handle middle element if array length is odd
+                                            if (sampleSize % 2 == 1) 
+                                            {
+                                                fitnessStorage[taskIdx][sampleSize / 2] *= -1.0;
+                                            }*/
+                                            for (int j = 0; j < sampleSize; j++)
+                                            {
+                                                fitnessStorage[taskIdx][j] *= -1.0;
+                                            }
+
+                                            GEV dist = ParameterDistributions.SampleMinimumMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
+                                            parameterDistributions[idx] = dist;
+                                            // Assign upper and lower bounds
+                                            upperBounds[idx] = dist.Quantile(ComplementEpsilon16);
+                                            lowerBounds[idx] = dist.Quantile(Epsilon16);
+                                            break;
+                                        }
+                                }
+                            });
+                        }
+                        else
+                        {
+                            Task.WaitAny(tasks);
+                            i--;
+                        }
+                    }
+                    for (int i = 0; i < tasks.Length; i++) { if (tasks[i] == null) tasks[i] = Task.Run(() => { return; }); } // Filler
+                    Task.WaitAll(tasks); // Once this has completed, we have sampled all of the branches.
+                }
+                else // Synchronous case
+                {
+                    var fitnessStorage = new double[sampleSize];
+                    var bootstrapStorage = new double[BootstrapSampleSize];
+                    for (int i = 0; i < batches.Length; i++)
+                    {
+                        batches[i].SampleNonAlloc(fitnessStorage, FitnessFunction);
+                        // Assuming 1/nth quantile for testing
+                        // Negate the observations to get observations from -X
+                        for (int j = 0; j < sampleSize; j++)
+                        {
+                            fitnessStorage[j] *= -1.0;
+                        }
+
+                        Sorting.Sort(fitnessStorage);
+                        GEV dist = ParameterDistributions.SampleMinimumMemoryFriendly(fitnessStorage, bootstrapStorage, activeBranches[i].rand);
+                        parameterDistributions[i] = dist;
+                        // Assign upper and lower bounds
+                        upperBounds[i] = dist.Quantile(ComplementEpsilon16);
+                        lowerBounds[i] = dist.Quantile(Epsilon16);
+                    }
                 }
                 
-                for (int i = 0; i < activeBranches.Length; i++)
-                {
-                    int taskIdx = getAvailableTaskIndex();
-                    if (taskIdx > -1)
-                    {
-                        // Capture a copy of the current value of i; do not let the compiler use i in the closure of the lambda expression below
-                        int idx = i;
-
-                        tasks[taskIdx] = Task.Run(() => {
-                            // Run the sampling
-                            batches[idx].SampleNonAlloc(fitnessStorage[taskIdx], FitnessFunction);
-
-                            // Compute the estimating distribution of the guiding parameter
-                            switch (GuidingParam)
-                            {
-                                case GuidingParameter.Mean:
-                                    {
-                                        Normal dist = ParameterDistributions.MeanCLT(fitnessStorage[taskIdx]);
-                                        parameterDistributions[idx] = dist;
-                                        // Assign upper and lower bounds
-                                        upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                        lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
-                                        break;
-                                    }
-                                case GuidingParameter.Median:
-                                    {
-                                        // Sort the fitness data in place
-                                        Sorting.Sort(fitnessStorage[taskIdx]);
-                                        Normal dist = ParameterDistributions.MedianBootstrapMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
-                                        parameterDistributions[idx] = dist;
-                                        // Assign upper and lower bounds
-                                        upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                        lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
-                                        break;
-                                    }
-                                case GuidingParameter.LowerMean:
-                                    {
-                                        Normal dist = ParameterDistributions.MeanOfLessThanQuantile(fitnessStorage[taskIdx], 0.5);
-                                        parameterDistributions[idx] = dist;
-                                        // Assign upper and lower bounds
-                                        upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                        lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
-                                        break;
-                                    }
-                                case GuidingParameter.OneOverNthQuantile:
-                                    {
-                                        // Negate the sample first, so the new upper tail is the old lower tail
-                                        /* Deprecated: In-place negation for sorted data. The sorting is handled by Pickands, so it doesn't matter.
-                                        double temp;
-                                        // Swap elements and negate to preserve ordering
-                                        for (int j = 0; j < fitnessStorage[taskIdx].Length / 2; j++)
-                                        {
-                                            temp = fitnessStorage[taskIdx][j];
-                                            fitnessStorage[taskIdx][j] = -fitnessStorage[taskIdx][sampleSize - j - 1];
-                                            fitnessStorage[taskIdx][sampleSize - j - 1] = -temp;
-                                        }
-                                        // Handle middle element if array length is odd
-                                        if (sampleSize % 2 == 1) 
-                                        {
-                                            fitnessStorage[taskIdx][sampleSize / 2] *= -1.0;
-                                        }*/
-                                        for (int j = 0; j < sampleSize; j++)
-                                        {
-                                            fitnessStorage[taskIdx][j] *= -1.0;
-                                        }
-
-                                        GEV dist = ParameterDistributions.SampleMinimumMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
-                                        parameterDistributions[idx] = dist;
-                                        // Assign upper and lower bounds
-                                        upperBounds[idx] = dist.Quantile(ComplementEpsilon16);
-                                        lowerBounds[idx] = dist.Quantile(Epsilon16);
-                                        break;
-                                    }
-                            }
-                        });
-                    }
-                    else
-                    {
-                        Task.WaitAny(tasks);
-                        i--;
-                    }
-                }
-                for (int i = 0; i < tasks.Length; i++) { if (tasks[i] == null) tasks[i] = Task.Run(() => { return; }); } // Filler
-                Task.WaitAll(tasks); // Once this has completed, we have sampled all of the branches.
                 #endregion
 
                 // Update the best observation so far
@@ -319,13 +354,17 @@ namespace Thesis.BranchAndBound
                     upperBounds = compactedUpperBounds.ToArray();
                     lowerBounds = compactedLowerBounds.ToArray();
                 }*/
-                
+
                 // --- Compute Discard Probabilities ---
                 // Deprecated: Negate the distributions
                 //var negatedDists = NegatedDistribution.NegateDistributions(parameterDistributions, lowerBounds, upperBounds);
 
-                double[] discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions);
+                // Standard discard computations using the integral
+                // double[] discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions, errorTolerance: 1E-10, maxIterations: 14);
                 // The discard probabilities are in complement form (1 - P(D_i)) in this array
+
+                // Temporary Monte Carlo version
+                double[] discardComplements = DiscardProbabilityComputation.ComplementsMonteCarlo(negatedDistributions);
 
                 // --- Discarding ---
                 // Note: Nullifying a branch in activeBranches[] will discard it

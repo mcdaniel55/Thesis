@@ -6,6 +6,7 @@ using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using EMSOptimizationOverhaul;
 using Thesis.BranchAndBound;
+using MathNet.Numerics.Random;
 
 namespace Thesis
 {
@@ -57,7 +58,7 @@ namespace Thesis
         {
             var solutionSpace = new IntervalBranch(0, 3.2);
             var bb = new SIDBranchAndBound<double>(solutionSpace, FitnessFunctions.ExampleFunction, GuidingParameter.OneOverNthQuantile);
-            var result = bb.BranchAndBound(500, 8, 0.95, false);
+            var result = bb.BranchAndBound(200, 8, 0.9999, false, true);
             Program.logger.WriteLine("Intro Optimization Results:");
             for (int i = 0; i < result.Length; i++)
             {
@@ -454,6 +455,61 @@ namespace Thesis
             }
 
             PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersV4(data, out double a, out double c, out double u);
+        }
+
+        public static void TestGEVCDFALT()
+        {
+            for (int i = 0; i < 300; i++)
+            {
+                double scale = Math.Pow(2, -i / 5.0);
+                double x = Program.rand.NextDouble() * scale;
+                double shape = -Program.rand.NextDouble();
+                GEV gev = new GEV(0, scale, shape);
+                Program.logger.WriteLine($"GEV loc 0 scale {scale} shape {shape}");
+                double CDF = gev.CumulativeDistribution(x);
+                double ALT = gev.CDFALT(x);
+                Program.logger.WriteLine($"x {x} CDFReg {CDF} ALT {ALT} Diff {CDF - ALT}");
+            }
+        }
+
+        public static void TestGEVComplementComputations()
+        {
+            double ep = Math.Pow(2, -50);
+            double complementEp = 1.0 - ep;
+
+            int testSize = 20;
+            GEV[] dists = new GEV[] { new GEV(0,200,-1), new GEV(0,100,-1) };
+
+            /*GEV[] dists = new GEV[testSize];
+            Random rand = new Xoshiro256StarStar(8675309);
+            for (int i = 0; i < dists.Length; i++)
+            {
+                dists[i] = new GEV(rand.NextDouble(), rand.NextDouble(), -rand.NextDouble(), rand);
+            }*/
+
+            IDistributionWrapper[] wrappedDists = new IDistributionWrapper[dists.Length];
+            for (int i = 0; i < dists.Length; i++)
+            {
+                wrappedDists[i] = new WrappedDistribution(dists[i], dists[i].Quantile(ep), dists[i].Quantile(complementEp));
+            }
+
+            double[] complements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(wrappedDists);
+            double[] complemetnsTrap = DiscardProbabilityComputation.ComplementsTrapezoid(wrappedDists, 10000);
+            double[] mcComplements = DiscardProbabilityComputation.ComplementsMonteCarlo(wrappedDists, iterations: 10000000);
+            double totalc = 0;
+            double totalmc = 0;
+            double totalTrap = 0;
+            for (int i = 0; i < complements.Length; i++)
+            {
+                GEV dist = dists[i];
+                Program.logger.WriteLine($"Distribution Scale: {dist.scale} Loc {dist.location} Shape {dist.shape} " +
+                    $"1-P(D) {complements[i]} MC {mcComplements[i]} Trap {complemetnsTrap[i]}");
+                totalc += complements[i];
+                totalmc += mcComplements[i];
+                totalTrap += complemetnsTrap[i];
+            }
+
+            Program.logger.WriteLine($"Total probability: {totalc} Total by MC: {totalmc} Total by Trap 10k: {totalTrap}");
         }
 
     }
