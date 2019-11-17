@@ -422,8 +422,9 @@ namespace Thesis
                 //return Math.Exp(3.4657359028 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.2 in shape causes a doubling of cost to fitness
                 //return (0.5 * Math.Exp(shapeParam * shapeParam)) * sum / (n - 1);
                 //return Math.Log(1 + Math.Abs(shapeParam * shapeParam)) * sum / (n - 1);// This is good
-                return (1 + Math.Pow(5, Math.Abs(shapeParam))) * sum / (n - 1);
-                return (1 + Math.Abs(shapeParam)) * sum / (n - 1); // Weighted so that smaller magnitudes of the shape parameter are preferred
+                //return (1 + Math.Pow(5, Math.Abs(shapeParam))) * sum / (n - 1); // Also good
+                //return (1 + Math.Abs(shapeParam)) * sum / (n - 1); // Weighted so that smaller magnitudes of the shape parameter are preferred
+                return sum / (n - 1); // No weighting
             }
 
             double GetScore(double uval, out double scaleParam, out double shapeParam)

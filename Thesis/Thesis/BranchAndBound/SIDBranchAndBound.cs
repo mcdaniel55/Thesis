@@ -13,9 +13,9 @@ namespace Thesis.BranchAndBound
     {
         #region Properties
         private const int BootstrapSampleSize = 250;
-        private static readonly double Epsilon16 = Math.Pow(2, -48);
-        private static readonly double ComplementEpsilon16 = 1.0 - Math.Pow(2, -48);
-        private static readonly double NormalBoundStdDevs = Normal.InvCDF(0, 1, ComplementEpsilon16); // Roughly 8 standard deviations
+        private static readonly double Epsilon12 = Math.Pow(2, -40);
+        private static readonly double ComplementEpsilon12 = 1.0 - Math.Pow(2, -40);
+        private static readonly double NormalBoundStdDevs = Normal.InvCDF(0, 1, 1 - Math.Pow(2, -48)); // Roughly 8 standard deviations
         private static readonly double PreemptiveDiscardConfidenceThreshold = 0.99999;
 
         /// <summary>
@@ -194,8 +194,8 @@ namespace Thesis.BranchAndBound
                                             GEV dist = ParameterDistributions.SampleMinimumMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
                                             parameterDistributions[idx] = dist;
                                             // Assign upper and lower bounds
-                                            upperBounds[idx] = dist.Quantile(ComplementEpsilon16);
-                                            lowerBounds[idx] = dist.Quantile(Epsilon16);
+                                            upperBounds[idx] = dist.Quantile(ComplementEpsilon12);
+                                            lowerBounds[idx] = dist.Quantile(Epsilon12);
                                             break;
                                         }
                                 }
@@ -228,8 +228,8 @@ namespace Thesis.BranchAndBound
                         GEV dist = ParameterDistributions.SampleMinimumMemoryFriendly(fitnessStorage, bootstrapStorage, activeBranches[i].rand);
                         parameterDistributions[i] = dist;
                         // Assign upper and lower bounds
-                        upperBounds[i] = dist.Quantile(ComplementEpsilon16);
-                        lowerBounds[i] = dist.Quantile(Epsilon16);
+                        upperBounds[i] = dist.Quantile(ComplementEpsilon12);
+                        lowerBounds[i] = dist.Quantile(Epsilon12);
                     }
                 }
                 
@@ -359,12 +359,8 @@ namespace Thesis.BranchAndBound
                 // Deprecated: Negate the distributions
                 //var negatedDists = NegatedDistribution.NegateDistributions(parameterDistributions, lowerBounds, upperBounds);
 
-                // Standard discard computations using the integral
-                // double[] discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions, errorTolerance: 1E-10, maxIterations: 14);
+                double[] discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions, errorTolerance: 1E-8, maxIterations: 12);
                 // The discard probabilities are in complement form (1 - P(D_i)) in this array
-
-                // Temporary Monte Carlo version
-                double[] discardComplements = DiscardProbabilityComputation.ComplementsMonteCarlo(negatedDistributions);
 
                 // --- Discarding ---
                 // Note: Nullifying a branch in activeBranches[] will discard it

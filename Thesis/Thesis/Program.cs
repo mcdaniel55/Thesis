@@ -32,14 +32,10 @@ namespace Thesis
 
             //Tests.TestGEV();
 
-            //Tests.RunIntroOptimization();
+            Tests.RunIntroOptimization();
             //Tests.TestNewTailFittingV4();
             //Tests.TestGEVCDFALT();
-            Tests.TestGEVComplementComputations();
-
-            GEV gev = new GEV(2, 20, -0.5);
-            Console.WriteLine($"PDF: {gev.Density(20)}");
-            Console.WriteLine($"CDF: {gev.CumulativeDistribution(10)}");
+            //Tests.TestGEVComplementComputations();
 
             Console.WriteLine("Done.");
             Console.ReadLine();
