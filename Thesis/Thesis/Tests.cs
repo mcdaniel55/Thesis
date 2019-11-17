@@ -95,12 +95,12 @@ namespace Thesis
             Logger output2 = new Logger("GEV Test B.csv");
             //var dist = new ChiSquared(4, Program.rand);
             //var dist = new Beta(2, 2);
-            var dist = new Beta(2, 5);
-            //var dist = new Beta(2, 1.5);
+            //var dist = new Beta(2, 5);
+            var dist = new Beta(2, 1.5);
             output.WriteLine($"Distribution: {dist.ToString().Replace(',',' ')}");
             //var dist = new Exponential(2, Program.rand);
             //var dist = new Gamma(2, 2, Program.rand);
-            const int sampleSize = 200;
+            const int sampleSize = 300;
             output.WriteLine($"Samplesize: {sampleSize}");
 
             // Report the distribution 1-1/e quantile
@@ -322,8 +322,23 @@ namespace Thesis
             }
 
             ContinuousDistribution approxECDF = ContinuousDistribution.ECDF(approxObservations); // ECDF of the bootstrapped observations
-            scaleGuess = Math.Sqrt(6 * Statistics.Variance(approxObservations)) / Math.PI;
-            locationGuess = Statistics.Median(approxObservations) + scaleGuess * Math.Log(Math.Log(2));
+            //scaleGuess = Math.Sqrt(6 * Statistics.Variance(approxObservations)) / Math.PI;
+            //locationGuess = Statistics.Median(approxObservations) + scaleGuess * Math.Log(Math.Log(2));
+            // Guess location and scale
+            shapeGuess = pickandsApprox.c;
+            if (shapeGuess < 0)
+            {
+                double g1 = SpecialFunctions.Gamma(1 - shapeGuess);
+                double g2 = SpecialFunctions.Gamma(1 - 2 * shapeGuess);
+                scaleGuess = Math.Sqrt(Statistics.Variance(approxObservations) * shapeGuess * shapeGuess / (g2 - g1 * g1));
+                locationGuess = Statistics.Mean(approxObservations) - scaleGuess * (g1 - 1) / shapeGuess;
+            }
+            else
+            {
+                scaleGuess = Math.Sqrt(6 * Statistics.Variance(approxObservations)) / Math.PI;
+                locationGuess = Statistics.Median(approxObservations) + scaleGuess * Math.Log(Math.Log(2));
+            }
+
             GEV estimatedGEVUnfitted = new GEV(location: locationGuess, scale: scaleGuess, shape: pickandsApprox.c); // Using the Pickands estimator for shape
 
             output.WriteLine($"UnfittedGEVModel: shape{estimatedGEVUnfitted.shape} location{estimatedGEVUnfitted.location} scale {estimatedGEVUnfitted.scale}");
@@ -348,7 +363,7 @@ namespace Thesis
             double[] observationQuantiles = Interpolation.Linspace(0.000001, 0.999999, 2000);
             for (int i = 0; i < observationQuantiles.Length; i++) { observationQuantiles[i] = Statistics.Quantile(observations, observationQuantiles[i]); }
             
-            output.WriteLine("Abscissas,Monte Carlo ECDF,GEV Fit of MC ECDF,Estimated ECDF,Estimated GEV Unfitted,Estimated GEV Fitted,,ErrDistExactAbscissas,ErrDistExactValues,ErrDistModelAbscissas,ErrDistModelValues");
+            output.WriteLine("Abscissas,Monte Carlo ECDF,GEV Fit of MC ECDF,Estimated ECDF,Estimated GEV Unfitted,Estimated GEV Fitted,,ErrDistExactAbscissas,ErrDistExactValues,ErrDistModelAbscissas,ErrDistModelValues,ErrDistUnfittedAbscissas,ErrDistUnfittedValues");
             for (int i = 0; i < observationQuantiles.Length; i++)
             {
                 output.WriteLine($"{observationQuantiles[i]}," +
@@ -361,8 +376,11 @@ namespace Thesis
                     $"{observationQuantiles[i] - upperQuantile}," +
                     $"{MonteCarloDistributionOfTheMaximum.CumulativeDensity(observationQuantiles[i])}," +
                     //$"{quantiles[i] - sample[sample.Length - 1]}," +
+                    $"{estimatedGEVUnfitted.Quantile(proportions[i]) - estimatedGEVUnfitted.location}," +
+                    $"{proportions[i]}," +
                     $"{fittedApproxModel.Quantile(proportions[i]) - fittedApproxModel.location}," +
                     $"{proportions[i]}");
+
             }
 
             double[] distributionQuantiles = Interpolation.Linspace(0.000001, 0.999999, 2000);
@@ -457,35 +475,20 @@ namespace Thesis
             PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersV4(data, out double a, out double c, out double u);
         }
 
-        public static void TestGEVCDFALT()
-        {
-            for (int i = 0; i < 300; i++)
-            {
-                double scale = Math.Pow(2, -i / 5.0);
-                double x = Program.rand.NextDouble() * scale;
-                double shape = -Program.rand.NextDouble();
-                GEV gev = new GEV(0, scale, shape);
-                Program.logger.WriteLine($"GEV loc 0 scale {scale} shape {shape}");
-                double CDF = gev.CumulativeDistribution(x);
-                double ALT = gev.CDFALT(x);
-                Program.logger.WriteLine($"x {x} CDFReg {CDF} ALT {ALT} Diff {CDF - ALT}");
-            }
-        }
-
         public static void TestGEVComplementComputations()
         {
             double ep = Math.Pow(2, -50);
             double complementEp = 1.0 - ep;
 
             int testSize = 20;
-            GEV[] dists = new GEV[] { new GEV(0,200,-1), new GEV(0,100,-1) };
+            //GEV[] dists = new GEV[] { new GEV(0,200,-1), new GEV(0,100,-1) };
 
-            /*GEV[] dists = new GEV[testSize];
+            GEV[] dists = new GEV[testSize];
             Random rand = new Xoshiro256StarStar(8675309);
             for (int i = 0; i < dists.Length; i++)
             {
                 dists[i] = new GEV(rand.NextDouble(), rand.NextDouble(), -rand.NextDouble(), rand);
-            }*/
+            }
 
             IDistributionWrapper[] wrappedDists = new IDistributionWrapper[dists.Length];
             for (int i = 0; i < dists.Length; i++)

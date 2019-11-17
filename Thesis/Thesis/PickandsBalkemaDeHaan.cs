@@ -329,8 +329,8 @@ namespace Thesis
             list.RemoveAll(x => x <= uVal);
             list.Insert(0, uVal);
             // Testing
-            //double avgdif = (sortedData[sortedData.Count - 1] - sortedData[sortedData.Count - 3]) / 2;
-            //list.Add(sortedData[sortedData.Count - 1] + avgdif); // Haven't noticed any differences from this yet
+            double avgdif = (sortedData[sortedData.Count - 1] - sortedData[sortedData.Count - 3]) / 2;
+            list.Add(sortedData[sortedData.Count - 1] + avgdif); // Haven't noticed any differences from this yet
 #if DEBUG
             if (list.Count < 2)
             {
@@ -349,7 +349,7 @@ namespace Thesis
         }
 
         // Uses the observations that are greater than u to compute the variance of the upper tail under a linear interpolation of the empirical distribution
-        // Note: May be less numerically stable than the second moment. This seems not to work as well as E(X^2) - E(X)^2
+        // Note: May be less numerically stable than the second moment. This seems not to work as well as E(X^2) - E(X)^2 depending on the location of the data
         internal static double TailVariance(IList<double> tailData, double xBar)
         {
             double Summand(double x1, double x2)
@@ -388,7 +388,7 @@ namespace Thesis
             double m1 = TailMean(tailData);
             double m2 = TailSecondMoment(tailData);
             double variance = m2 - m1 * m1;
-            double xBarMinusMu = m1 - tailData[0]; // Transition point is tailData[0]
+            double xBarMinusMu = m1 - tailData[0]; // Transition point is tailData[0]; mu is the TP, not the mean here
 
             shapeParam = 0.5 * (1 - xBarMinusMu * xBarMinusMu / variance);
             scaleParam = xBarMinusMu * (1 - shapeParam);
@@ -422,9 +422,10 @@ namespace Thesis
                 //return Math.Exp(3.4657359028 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.2 in shape causes a doubling of cost to fitness
                 //return (0.5 * Math.Exp(shapeParam * shapeParam)) * sum / (n - 1);
                 //return Math.Log(1 + Math.Abs(shapeParam * shapeParam)) * sum / (n - 1);// This is good
-                //return (1 + Math.Pow(5, Math.Abs(shapeParam))) * sum / (n - 1); // Also good
+                //return (1 + Math.Pow(2, Math.Abs(shapeParam))) * sum / (n - 1); // Also good
                 //return (1 + Math.Abs(shapeParam)) * sum / (n - 1); // Weighted so that smaller magnitudes of the shape parameter are preferred
                 return sum / (n - 1); // No weighting
+                //return Math.Pow(2, Math.Abs(shapeParam) * 5) * sum / (n - 1);
             }
 
             double GetScore(double uval, out double scaleParam, out double shapeParam)
@@ -433,18 +434,25 @@ namespace Thesis
                 EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
                 scaleParam = scaleEst;
                 shapeParam = shapeEst;
-                return WeightedMidpointMSE(tailData, scaleEst, shapeEst);
+                double score = WeightedMidpointMSE(tailData, scaleEst, shapeEst);
+                return score;
             }
+            
+            // Rescale to a new scoring where smaller magnitudes of shape and/or larger scales are preferred
+            //double NewScale(double shapeVal) => Math.Pow(2, Math.Abs(shapeVal) * 5);
+            //double NewScale(double shapeVal, double scaleVal) => Math.Pow(2, Math.Abs(shapeVal) / scaleVal);
+            double NewScale(double shapeVal, double scaleVal) => Math.Exp(6 * Math.Abs(shapeVal)); // e^-(c/a)
 
-            // Try 10 choices of u evenly spaced over (x_0, x_n-3)
+            // Try several choices of u evenly spaced over (x_0, x_n-3), and keep the best fit
             var uValues = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 5], sortedData.Count / 4);
-            double bestU = double.NegativeInfinity;
-            double bestA = double.NegativeInfinity;
-            double bestC = double.NegativeInfinity;
+            double bestU = 0;
+            double bestA = 0;
+            double bestC = 0;
             double bestScore = double.PositiveInfinity;
             for (int i = 0; i < uValues.Length; i++)
             {
                 double score = GetScore(uValues[i], out double scaleEst, out double shapeEst);
+                score *= NewScale(shapeEst, scaleEst);
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -453,14 +461,17 @@ namespace Thesis
                     bestC = shapeEst;
                 }
             }
-            // Refine the best so far by bisection search
+            // --- Refine the best so far by bisection search ---
             double delta = uValues[1] - uValues[0];
+            //bestScore *= NewScale(bestC, bestA);
             for (int i = 0; i < 10; i++)
             {
                 delta *= 0.5;
                 double forwardU = Math.Min(bestU + delta, sortedData[sortedData.Count - 3]); // Don't go so high that we don't have data to work with
                 double forwardScore = GetScore(forwardU, out double forwardScale, out double forwardShape);
+                forwardScore *= NewScale(forwardShape, forwardScale);
                 double backwardScore = GetScore(bestU - delta, out double backwardScale, out double backwardShape);
+                backwardScore *= NewScale(backwardShape, backwardScale);
                 if (forwardScore < bestScore)
                 {
                     bestScore = forwardScore;
@@ -470,6 +481,7 @@ namespace Thesis
                 }
                 if (backwardScore < bestScore)
                 {
+                    bestScore = backwardScore;
                     bestU -= delta;
                     bestA = backwardScale;
                     bestC = backwardShape;
@@ -480,10 +492,11 @@ namespace Thesis
             a = bestA;
             c = bestC;
 
-            //Program.logger.WriteLine($"Selected u:{bestU}, a:{bestA}, c:{bestC}, fitness:{bestScore}");
 
-            // Testing
-            /*var uvals = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], 1000);
+            // --- Testing ---
+            Program.logger.WriteLine($"Selected u:{bestU}, a:{bestA}, c:{bestC}, fitness:{bestScore}");
+
+            var uvals = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], 1000);
             Program.logger.WriteLine("u,a,c,fitness");
             for (int i = 0; i < uvals.Length; i++)
             {
@@ -492,7 +505,7 @@ namespace Thesis
                 EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
                 double fitness = WeightedMidpointMSE(tailData, scaleEst, shapeEst);
                 Program.logger.WriteLine($"{transitionX},{scaleEst},{shapeEst},{fitness}");
-            }*/
+            }
             
         }
 

@@ -109,11 +109,6 @@ namespace Thesis
             }
         }
 
-        private double Exponent(double x)
-        {
-            return Math.Pow(1 + shape * ((x - location) / scale), -1.0 / shape);
-        }
-
         public double CumulativeDistribution(double x)
         {
             double s = (x - location) / scale;
@@ -171,12 +166,6 @@ namespace Thesis
         public IEnumerable<double> Samples()
         {
             throw new NotImplementedException();
-        }
-
-        // Testing
-        public double CDFALT(double x)
-        {
-            return Math.Exp(-Exponent(x));
         }
     }
 }
