@@ -74,7 +74,7 @@ namespace Thesis
             return MeanCLT(sortedData.ToArray());
         }
 
-        public static GEV SampleMinimumMemoryFriendly(double[] data, double[] bootstrapStorage, Random rand = null)
+        public static GEV SampleMinimumErrorDistMemoryFriendly(double[] data, double[] bootstrapStorage, Random rand = null)
         {
             if (rand == null) rand = Program.rand;
 
@@ -156,8 +156,13 @@ namespace Thesis
 
             // Skip opt
             //return new GEV(data[data.Length - 1], scaleGuess, shapeGuess, rand); // Needs the data to be sorted ahead of time
-            return new GEV(locationGuess, scaleGuess, shapeGuess, rand); // Try this with the sample max instead of the locGuess
+            //return new GEV(locationGuess, scaleGuess, shapeGuess, rand); // Try this with the sample max instead of the locGuess
+            
+            //double sampleMax = double.NegativeInfinity; // Compute the sample max
+            //for (int i = 0; i < data.Length; i++) { sampleMax = Math.Max(sampleMax, data[i]); }
+            //var errorDist = new GEV(0, scaleGuess, shapeGuess);
+            //return new NegatedParameterDistribution(errorDist, sampleMax, errorDist.Quantile(Math.Pow(2, -48)), errorDist.Quantile(1 - Math.Pow(2, -48)));
+            return new GEV(0, scaleGuess, shapeGuess);
         }
-
     }
 }

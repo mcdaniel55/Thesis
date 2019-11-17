@@ -515,5 +515,24 @@ namespace Thesis
             Program.logger.WriteLine($"Total probability: {totalc} Total by MC: {totalmc} Total by Trap 10k: {totalTrap}");
         }
 
+        public static void TestNegatedParameterDistributionWrapper()
+        {
+            var dist = new Beta(2, 5);
+
+            double est = 10;
+
+            var newDist = new NegatedParameterDistribution(dist, est, dist.Minimum, dist.Maximum);
+            Program.logger.WriteLine($"Min: {newDist.GetLowerBound()}, Min: {newDist.GetUpperBound()}");
+
+            Program.logger.WriteLine("Value, PDF, CDF");
+            for (int i = 0; i < 1000; i++)
+            {
+                double x = newDist.Sample();
+                Program.logger.WriteLine($"{x}, {newDist.Density(x)}, {newDist.CumulativeDistribution(x)}");
+            }
+            
+
+        }
+
     }
 }

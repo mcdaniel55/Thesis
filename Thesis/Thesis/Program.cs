@@ -30,11 +30,13 @@ namespace Thesis
 
             //Tests.TestPickands();
 
-            Tests.TestGEV();
+            //Tests.TestGEV();
 
-            //Tests.RunIntroOptimization();
+            Tests.RunIntroOptimization();
             //Tests.TestNewTailFittingV4();
             //Tests.TestGEVComplementComputations();
+
+            //Tests.TestNegatedParameterDistributionWrapper();
 
             Console.WriteLine("Done.");
             Console.ReadLine();

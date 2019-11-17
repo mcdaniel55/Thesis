@@ -139,5 +139,62 @@ namespace Thesis
         }
     }
 
-    
+    public struct NegatedParameterDistribution : IDistributionWrapper
+    {
+        private readonly IContinuousDistribution originalDistribution;
+        private readonly double estimate, upperBound, lowerBound;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="errorDistribution"> The probability distribution of the error of estimation thetaHat - theta, with 0 corresponding to no error. </param>
+        /// <param name="estimate"> The observed value of thetaHat. </param>
+        /// <param name="errorLowerBound"></param>
+        /// <param name="errorUpperBound"></param>
+        public NegatedParameterDistribution(IContinuousDistribution errorDistribution, double estimate, double errorLowerBound, double errorUpperBound)
+        {
+            originalDistribution = errorDistribution;
+            upperBound = estimate - errorLowerBound;
+            lowerBound = estimate - errorUpperBound;
+            this.estimate = estimate;
+        }
+
+        public double CumulativeDistribution(double x)
+        {
+            // 1 - F(-x)
+            return 1 - originalDistribution.CumulativeDistribution(estimate - x);
+        }
+
+        public double Density(double x)
+        {
+            // f(-x)
+            return originalDistribution.Density(estimate - x);
+        }
+
+        public double GetLowerBound()
+        {
+            return lowerBound;
+        }
+
+        public double GetUpperBound()
+        {
+            return upperBound;
+        }
+
+        public double GetEstimate()
+        {
+            return estimate;
+        }
+
+        public IContinuousDistribution GetWrappedDistribution()
+        {
+            return originalDistribution;
+        }
+
+        public double Sample()
+        {
+            return estimate - originalDistribution.Sample();
+        }
+    }
+
 }

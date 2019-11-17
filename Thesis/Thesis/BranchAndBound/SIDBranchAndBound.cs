@@ -191,7 +191,7 @@ namespace Thesis.BranchAndBound
                                                 fitnessStorage[taskIdx][j] *= -1.0;
                                             }
 
-                                            GEV dist = ParameterDistributions.SampleMinimumMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
+                                            GEV dist = ParameterDistributions.SampleMinimumErrorDistMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
                                             parameterDistributions[idx] = dist;
                                             // Assign upper and lower bounds
                                             upperBounds[idx] = dist.Quantile(ComplementEpsilon12);
@@ -225,7 +225,7 @@ namespace Thesis.BranchAndBound
                         }
 
                         Sorting.Sort(fitnessStorage);
-                        GEV dist = ParameterDistributions.SampleMinimumMemoryFriendly(fitnessStorage, bootstrapStorage, activeBranches[i].rand);
+                        GEV dist = ParameterDistributions.SampleMinimumErrorDistMemoryFriendly(fitnessStorage, bootstrapStorage, activeBranches[i].rand);
                         parameterDistributions[i] = dist;
                         // Assign upper and lower bounds
                         upperBounds[i] = dist.Quantile(ComplementEpsilon12);
