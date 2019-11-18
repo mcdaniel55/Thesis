@@ -494,7 +494,7 @@ namespace Thesis
 
 
             // --- Testing ---
-            Program.logger.WriteLine($"Selected u:{bestU}, a:{bestA}, c:{bestC}, fitness:{bestScore}");
+            /*Program.logger.WriteLine($"Selected u:{bestU}, a:{bestA}, c:{bestC}, fitness:{bestScore}");
 
             var uvals = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], 1000);
             Program.logger.WriteLine("u,a,c,fitness");
@@ -505,7 +505,7 @@ namespace Thesis
                 EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
                 double fitness = WeightedMidpointMSE(tailData, scaleEst, shapeEst);
                 Program.logger.WriteLine($"{transitionX},{scaleEst},{shapeEst},{fitness}");
-            }
+            }*/
             
         }
 

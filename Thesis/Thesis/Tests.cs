@@ -66,6 +66,42 @@ namespace Thesis
             }
         }
 
+        public static void RunWickedCombOptimization()
+        {
+            var solutionSpace = new IntervalBranch(-0.15, 0.15); // Constraints
+            const double difficulty = 10;
+            const double xSquaredCoefficient = 5;
+            const int sampleSize = 200;
+            const double confidenceLevel = 0.99;
+            const int numSteps = 20;
+
+            var bb = new SIDBranchAndBound<double>(solutionSpace, x => FitnessFunctions.WickedComb(x, difficulty, xSquaredCoefficient), GuidingParameter.OneOverNthQuantile);
+            var result = bb.BranchAndBound(sampleSize, numSteps, confidenceLevel, false, true);
+
+            Program.logger.WriteLine($"Wicked Comb (x, {difficulty}, {xSquaredCoefficient}) Size {sampleSize} Confidence {confidenceLevel} Optimization Results:");
+            for (int i = 0; i < result.Length; i++)
+            {
+                Program.logger.WriteLine($"{i}: {result[i].ToString()}");
+            }
+        }
+
+        public static void RunEggholderOptimization()
+        {
+            var solutionSpace = new RectangleBranch(-512, 512,-512, 512); // Constraints
+            const int sampleSize = 200;
+            const double confidenceLevel = 0.99;
+            const int numSteps = 10;
+
+            var bb = new SIDBranchAndBound<Tuple<double,double>>(solutionSpace, x => FitnessFunctions.EggHolder(x.Item1, x.Item2), GuidingParameter.OneOverNthQuantile);
+            var result = bb.BranchAndBound(sampleSize, numSteps, confidenceLevel, false, true);
+
+            Program.logger.WriteLine($"Eggholder Size {sampleSize} Confidence {confidenceLevel} Optimization Results:");
+            for (int i = 0; i < result.Length; i++)
+            {
+                Program.logger.WriteLine($"{i}: {result[i].ToString()}");
+            }
+        }
+
         public static void TestCCQuadrature1()
         {
             double f(double x) => Math.Sqrt(x);
@@ -521,7 +557,7 @@ namespace Thesis
 
             double est = 10;
 
-            var newDist = new NegatedParameterDistribution(dist, est, dist.Minimum, dist.Maximum);
+            var newDist = new ParameterDistribution(dist, est, dist.Minimum, dist.Maximum);
             Program.logger.WriteLine($"Min: {newDist.GetLowerBound()}, Min: {newDist.GetUpperBound()}");
 
             Program.logger.WriteLine("Value, PDF, CDF");

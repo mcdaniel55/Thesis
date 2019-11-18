@@ -139,7 +139,7 @@ namespace Thesis
         }
     }
 
-    public struct NegatedParameterDistribution : IDistributionWrapper
+    public struct ParameterDistribution : IDistributionWrapper
     {
         private readonly IContinuousDistribution originalDistribution;
         private readonly double estimate, upperBound, lowerBound;
@@ -151,7 +151,7 @@ namespace Thesis
         /// <param name="estimate"> The observed value of thetaHat. </param>
         /// <param name="errorLowerBound"></param>
         /// <param name="errorUpperBound"></param>
-        public NegatedParameterDistribution(IContinuousDistribution errorDistribution, double estimate, double errorLowerBound, double errorUpperBound)
+        public ParameterDistribution(IContinuousDistribution errorDistribution, double estimate, double errorLowerBound, double errorUpperBound)
         {
             originalDistribution = errorDistribution;
             upperBound = estimate - errorLowerBound;

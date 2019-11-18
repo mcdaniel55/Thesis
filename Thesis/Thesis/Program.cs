@@ -32,7 +32,10 @@ namespace Thesis
 
             //Tests.TestGEV();
 
-            Tests.RunIntroOptimization();
+            //Tests.RunIntroOptimization();
+            //Tests.RunWickedCombOptimization();
+            Tests.RunEggholderOptimization();
+
             //Tests.TestNewTailFittingV4();
             //Tests.TestGEVComplementComputations();
 

@@ -528,7 +528,7 @@ namespace Thesis
             return output;
         }
 
-        // Monte carlo here, don't mind me
+        // Monte Carlo, for when smaller is better and computation time is no object
         public static double[] ComplementsMonteCarlo(IDistributionWrapper[] negDistributions, int iterations = 1000000)
         {
             double[] bestCounts = new double[negDistributions.Length];
@@ -540,6 +540,33 @@ namespace Thesis
                 {
                     double observed = negDistributions[j].Sample();
                     if (observed < bestObserved)
+                    {
+                        bestObserved = observed;
+                        bestIdx = j;
+                    }
+                }
+                bestCounts[bestIdx]++;
+            }
+            // Divide by the number of total observations
+            for (int i = 0; i < negDistributions.Length; i++)
+            {
+                bestCounts[i] = bestCounts[i] / iterations;
+            }
+            return bestCounts;
+        }
+
+        // A version for when larger is better
+        public static double[] ComplementsMonteCarloMaximizing(IDistributionWrapper[] negDistributions, int iterations = 1000000)
+        {
+            double[] bestCounts = new double[negDistributions.Length];
+            for (int i = 0; i < iterations; i++)
+            {
+                double bestObserved = negDistributions[0].Sample();
+                int bestIdx = 0;
+                for (int j = 1; j < negDistributions.Length; j++)
+                {
+                    double observed = negDistributions[j].Sample();
+                    if (observed > bestObserved)
                     {
                         bestObserved = observed;
                         bestIdx = j;

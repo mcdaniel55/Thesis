@@ -94,9 +94,10 @@ namespace Thesis.BranchAndBound
                 }
 
                 // Storage for the estimating distribution of the guiding parameter of each branch
-                var parameterDistributions = new IContinuousDistribution[activeBranches.Length];
-                var upperBounds = new double[parameterDistributions.Length];
-                var lowerBounds = new double[parameterDistributions.Length];
+                //var parameterDistributions = new IContinuousDistribution[activeBranches.Length];
+                var negatedDistributions = new IDistributionWrapper[activeBranches.Length];
+                //var upperBounds = new double[parameterDistributions.Length];
+                //var lowerBounds = new double[parameterDistributions.Length];
                 #endregion
 
                 #region Sampling
@@ -143,10 +144,11 @@ namespace Thesis.BranchAndBound
                                     case GuidingParameter.Mean:
                                         {
                                             Normal dist = ParameterDistributions.MeanCLT(fitnessStorage[taskIdx]);
-                                            parameterDistributions[idx] = dist;
+                                            negatedDistributions[idx] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
+                                            //parameterDistributions[idx] = dist;
                                             // Assign upper and lower bounds
-                                            upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                            lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
+                                            //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
+                                            //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
                                             break;
                                         }
                                     case GuidingParameter.Median:
@@ -154,19 +156,21 @@ namespace Thesis.BranchAndBound
                                             // Sort the fitness data in place
                                             Sorting.Sort(fitnessStorage[taskIdx]);
                                             Normal dist = ParameterDistributions.MedianBootstrapMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
-                                            parameterDistributions[idx] = dist;
+                                            negatedDistributions[idx] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
+                                            //parameterDistributions[idx] = dist;
                                             // Assign upper and lower bounds
-                                            upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                            lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
+                                            //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
+                                            //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
                                             break;
                                         }
                                     case GuidingParameter.LowerMean:
                                         {
                                             Normal dist = ParameterDistributions.MeanOfLessThanQuantile(fitnessStorage[taskIdx], 0.5);
-                                            parameterDistributions[idx] = dist;
+                                            negatedDistributions[idx] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
+                                            //parameterDistributions[idx] = dist;
                                             // Assign upper and lower bounds
-                                            upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                            lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
+                                            //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
+                                            //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
                                             break;
                                         }
                                     case GuidingParameter.OneOverNthQuantile:
@@ -191,11 +195,12 @@ namespace Thesis.BranchAndBound
                                                 fitnessStorage[taskIdx][j] *= -1.0;
                                             }
 
-                                            GEV dist = ParameterDistributions.SampleMinimumErrorDistMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
-                                            parameterDistributions[idx] = dist;
+                                            negatedDistributions[idx] = ParameterDistributions.NMinusOneOverNthQuantileViaSampleMinimumParameterDistribution(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
+                                            //GEV dist = ParameterDistributions.SampleMinimumErrorDistMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
+                                            //parameterDistributions[idx] = dist;
                                             // Assign upper and lower bounds
-                                            upperBounds[idx] = dist.Quantile(ComplementEpsilon12);
-                                            lowerBounds[idx] = dist.Quantile(Epsilon12);
+                                            //upperBounds[idx] = dist.Quantile(ComplementEpsilon12);
+                                            //lowerBounds[idx] = dist.Quantile(Epsilon12);
                                             break;
                                         }
                                 }
@@ -225,17 +230,17 @@ namespace Thesis.BranchAndBound
                         }
 
                         Sorting.Sort(fitnessStorage);
-                        GEV dist = ParameterDistributions.SampleMinimumErrorDistMemoryFriendly(fitnessStorage, bootstrapStorage, activeBranches[i].rand);
-                        parameterDistributions[i] = dist;
+                        negatedDistributions[i] = ParameterDistributions.NMinusOneOverNthQuantileViaSampleMinimumParameterDistribution(fitnessStorage, bootstrapStorage, activeBranches[i].rand);
+                        //parameterDistributions[i] = dist;
                         // Assign upper and lower bounds
-                        upperBounds[i] = dist.Quantile(ComplementEpsilon12);
-                        lowerBounds[i] = dist.Quantile(Epsilon12);
+                        //upperBounds[i] = dist.Quantile(ComplementEpsilon12);
+                        //lowerBounds[i] = dist.Quantile(Epsilon12);
                     }
                 }
                 
                 #endregion
 
-                // Update the best observation so far
+                // Update the best observation so far (this is not yet implemented at a lower level)
                 for (int i = 0; i < batches.Length; i++)
                 {
                     if (batches[i].BestObservedFitness < BestFitnessObserved)
@@ -247,23 +252,23 @@ namespace Thesis.BranchAndBound
 
                 #region Discarding
                 // The goal here is to do pre-emptive discarding and put the remaining (negated) sampling distributions in this list
-                var negatedDistributions = new IDistributionWrapper[] { };
+                //var negatedDistributions = new IDistributionWrapper[] { };
                 // --- Pre-emptive discarding ---
                 //bool performedPreEmptive = false;
                 
                 // Normal Pairwise Discarding
-                if (parameterDistributions[0].GetType() == typeof(Normal))
+                if (negatedDistributions[0].GetWrappedDistribution().GetType() == typeof(Normal))
                 {
-                    // Manual recast to Normal[]
-                    Normal[] normals = new Normal[parameterDistributions.Length];
-                    for (int i = 0; i < normals.Length; i++) { normals[i] = (Normal)parameterDistributions[i]; }
+                    // Manual recast to a non-negated Normal[]
+                    Normal[] normals = new Normal[negatedDistributions.Length];
+                    for (int i = 0; i < normals.Length; i++) { normals[i] = (Normal)(negatedDistributions[i].GetWrappedDistribution()); }
 
-                    for (int i = 0; i < parameterDistributions.Length - 1; i++)
+                    for (int i = 0; i < negatedDistributions.Length - 1; i++)
                     {
                         int discardIndex = DiscardProbabilityComputation.BestPairwiseDiscardNormal(normals, out double discardProb);
                         if (discardProb > PreemptiveDiscardConfidenceThreshold)
                         {
-                            parameterDistributions[discardIndex] = null;
+                            negatedDistributions[discardIndex] = null;
                             normals[discardIndex] = null;
                             activeBranches[discardIndex] = null;
                             //performedPreEmptive = true;
@@ -271,97 +276,51 @@ namespace Thesis.BranchAndBound
                         }
                         break;
                     }
-
-                    // Negate the normal distributions, populate the array of wrapped distributions, and compact the active branches
-                    var compactBranches = new List<Branch>(activeBranches.Length);
-                    var compactNegatedDists = new List<IDistributionWrapper>(parameterDistributions.Length);
-                    for (int i = 0; i < activeBranches.Length; i++)
-                    {
-                        if (activeBranches[i] != null)
-                        {
-                            compactBranches.Add(activeBranches[i]);
-                            compactNegatedDists.Add(new NegatedDistribution(normals[i], lowerBounds[i], upperBounds[i]));
-                        }
-                    }
-                    activeBranches = compactBranches.ToArray();
-                    negatedDistributions = compactNegatedDists.ToArray();
                 }
                 else // Non-normal case
                 {
                     // We have negated the distributions at this point, so we need to compare upper bounds against the largest lower bound
                     double maxLowerBound = double.NegativeInfinity;
-                    for (int i = 0; i < parameterDistributions.Length; i++) { maxLowerBound = Math.Max(maxLowerBound, lowerBounds[i]); }
+                    for (int i = 0; i < negatedDistributions.Length; i++) { maxLowerBound = Math.Max(maxLowerBound, negatedDistributions[i].GetLowerBound()); }
                     // Discard any distribution with an upper bound less than max lower bound
-                    for (int i = 0; i < parameterDistributions.Length; i++)
+                    for (int i = 0; i < negatedDistributions.Length; i++)
                     {
-                        if (upperBounds[i] < maxLowerBound)
+                        if (negatedDistributions[i].GetUpperBound() < maxLowerBound)
                         {
-                            parameterDistributions[i] = null;
+                            negatedDistributions[i] = null;
                             activeBranches[i] = null;
                             //performedPreEmptive = true;
                         }
                     }
-
-                    /*
-                    // Still in minimizing mode here, as we have not yet negated the distributions -- Deprecated
-                    double minUpperBound = double.PositiveInfinity;
-                    for (int i = 0; i < parameterDistributions.Length; i++) { minUpperBound = Math.Min(minUpperBound, upperBounds[i]); }
-                    // Discard any distribution with a lower bound greater than the smallest upper bound
-                    for (int i = 0; i < parameterDistributions.Length; i++)
-                    {
-                        if (lowerBounds[i] > minUpperBound)
-                        {
-                            parameterDistributions[i] = null;
-                            performedPreEmptive = true;
-                        }
-                    }*/
-
-                    // The distributions are already negated, so we need only to wrap them and compact the arrays
-                    var compactBranches = new List<Branch>(activeBranches.Length);
-                    var compactDists = new List<IDistributionWrapper>(parameterDistributions.Length);
-                    for (int i = 0; i < activeBranches.Length; i++)
-                    {
-                        if (activeBranches[i] != null)
-                        {
-                            compactBranches.Add(activeBranches[i]);
-                            compactDists.Add(new WrappedDistribution(parameterDistributions[i], lowerBounds[i], upperBounds[i]));
-                        }
-                    }
-                    activeBranches = compactBranches.ToArray();
-                    negatedDistributions = compactDists.ToArray();
                 }
 
-                // Deprecated: Compact the arrays if necessary - Now handled on a case-by-case basis above
-                /*
-                if (performedPreEmptive)
+                // Compact the arrays of active branches and their corresponding negated distributions, keeping them paired by their indices
+                var compactBranches = new List<Branch>(activeBranches.Length);
+                var compactNegatedDists = new List<IDistributionWrapper>(activeBranches.Length);
+                for (int i = 0; i < activeBranches.Length; i++)
                 {
-                    var compactedUpperBounds = new List<double>(parameterDistributions.Length);
-                    var compactedLowerBounds = new List<double>(parameterDistributions.Length);
-                    var compactedDistributions = new List<IContinuousDistribution>(parameterDistributions.Length);
-                    var compactBranches = new List<Branch>(activeBranches.Length);
-                    for (int i = 0; i < activeBranches.Length; i++)
+                    if (activeBranches[i] != null)
                     {
-                        if (activeBranches[i] != null)
-                        {
-                            compactBranches.Add(activeBranches[i]);
-                            compactedDistributions.Add(parameterDistributions[i]);
-                            compactedUpperBounds.Add(upperBounds[i]);
-                            compactedLowerBounds.Add(lowerBounds[i]);
-                        }
+                        compactBranches.Add(activeBranches[i]);
+                        compactNegatedDists.Add(negatedDistributions[i]);
                     }
-                    activeBranches = compactBranches.ToArray();
-                    parameterDistributions = compactedDistributions.ToArray();
-                    upperBounds = compactedUpperBounds.ToArray();
-                    lowerBounds = compactedLowerBounds.ToArray();
-                }*/
+                }
+                activeBranches = compactBranches.ToArray();
+                negatedDistributions = compactNegatedDists.ToArray();
 
                 // --- Compute Discard Probabilities ---
-                // Deprecated: Negate the distributions
-                //var negatedDists = NegatedDistribution.NegateDistributions(parameterDistributions, lowerBounds, upperBounds);
-
-                double[] discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions, errorTolerance: 1E-8, maxIterations: 12);
-                // The discard probabilities are in complement form (1 - P(D_i)) in this array
-
+                double[] discardComplements; // The discard probabilities are in complement form (1 - P(D_i)) in this array
+                if (GuidingParam == GuidingParameter.OneOverNthQuantile)
+                {
+                    // If the guiding parameter is the 1/nth quantile, then the integral will become too hard to compute. 
+                    // Use a foolproof alternative for now, until we can find a better way to compute it
+                    discardComplements = DiscardProbabilityComputation.ComplementsMonteCarloMaximizing(negatedDistributions);
+                }
+                else
+                {
+                    discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions, errorTolerance: 1E-8, maxIterations: 10);
+                }
+                
                 // --- Discarding ---
                 // Note: Nullifying a branch in activeBranches[] will discard it
                 // Find the largest discard complement for reference
