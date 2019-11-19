@@ -56,9 +56,10 @@ namespace Thesis.BranchAndBound
         }
 
         // --- Functions of 20 variables ---
-        public static double EMSPlanFitness(PartialEMSPlanBranch branch)
+        //public static double EMSPlanFitness(PartialEMSPlanBranch branch)
+        public static double EMSPlanFitness(Tuple<int[],int[]> input)
         {
-            Tuple<int[],int[]> input = branch.GetRandomElement();
+            //Tuple<int[],int[]> input = branch.GetRandomElement();
 
             // Test the plan, try up to five times
             Simulation sim = null;

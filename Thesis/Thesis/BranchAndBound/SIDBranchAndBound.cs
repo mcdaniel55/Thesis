@@ -57,9 +57,16 @@ namespace Thesis.BranchAndBound
             // === Main Loop ===
             for (int iteration = 0; iteration < iterations; iteration++)
             {
+                Console.WriteLine($"On iteration {iteration + 1} of {iterations}");
                 #region Branch Step
                 var newActiveBranches = new List<Branch>();
                 foreach (Branch branch in activeBranches) { if (branch != null) newActiveBranches.AddRange(branch.GetBranches()); }
+
+                // Print the list to the log
+                for (int i = 0; i < activeBranches.Length; i++)
+                {
+                    Program.logger.WriteLine($"{activeBranches[i]?.ToString()}");
+                }
 
                 Program.logger.WriteLine($"Branched to produce {newActiveBranches.Count} new regions.");
                 
@@ -86,12 +93,6 @@ namespace Thesis.BranchAndBound
                 branchingFactor = (branchingFactor * iteration + newActiveBranches.Count / activeBranches.Length) / (iteration + 1);
                 Program.logger.WriteLine($"Branching factor revised to {branchingFactor}");
                 activeBranches = newActiveBranches.ToArray();
-
-                // Print the list to the log
-                for (int i = 0; i < activeBranches.Length; i++)
-                {
-                    Program.logger.WriteLine($"{activeBranches[i].ToString()}");
-                }
 
                 // Storage for the estimating distribution of the guiding parameter of each branch
                 //var parameterDistributions = new IContinuousDistribution[activeBranches.Length];
