@@ -778,11 +778,6 @@ namespace Thesis
 
             return new ContinuousDistribution(abscissas, cdfVals);
         }
-
-
-
-
-
-
+        
     }
 }

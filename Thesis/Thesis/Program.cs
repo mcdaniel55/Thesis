@@ -23,10 +23,10 @@ namespace Thesis
 
             //Tests.GenerateHardDistributionSet();
 
-            //Tables.ComparisonTablePairwise(figure: true);
-            //Tables.ComparisonTableEasySet(figure: true);
-            //Tables.ComparisonTableMediumSet(figure: true);
-            //Tables.ComparisonTableHardSet(figure: true);
+            Tables.ComparisonTablePairwise(figure: true);
+            Tables.ComparisonTableEasySet(figure: true);
+            Tables.ComparisonTableMediumSet(figure: true);
+            Tables.ComparisonTableHardSet(figure: true);
 
             //Tests.TestPickands();
 
@@ -41,7 +41,7 @@ namespace Thesis
 
             //Tests.TestNegatedParameterDistributionWrapper();
 
-            Tests.RunEMSOptimization();
+            //Tests.RunEMSOptimization();
 
             Console.WriteLine("Done.");
             Console.ReadLine();
