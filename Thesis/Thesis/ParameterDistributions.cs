@@ -139,6 +139,10 @@ namespace Thesis
                 locationGuess = Statistics.Median(bootstrapStorage) + scaleGuess * Math.Log(Math.Log(2));
             }
 
+#if DEBUG
+            if (scaleGuess <= 0 || double.IsNaN(scaleGuess)) throw new Exception("Scale must be > 0.");
+#endif
+
             // Testing
             /*
             Program.logger.WriteLine($"Guesses: shape {shapeGuess} scale {scaleGuess} loc {locationGuess}");
@@ -157,11 +161,11 @@ namespace Thesis
             // Skip opt
             //return new GEV(data[data.Length - 1], scaleGuess, shapeGuess, rand); // Needs the data to be sorted ahead of time
             //return new GEV(locationGuess, scaleGuess, shapeGuess, rand); // Try this with the sample max instead of the locGuess
-            
+
             double sampleMax = double.NegativeInfinity; // Compute the sample max
             for (int i = 0; i < data.Length; i++) { sampleMax = Math.Max(sampleMax, data[i]); }
-            var errorDist = new GEV(0, scaleGuess, shapeGuess, rand); // Location is always 0 here
-            return new ParameterDistribution(errorDist, sampleMax, errorDist.Quantile(Math.Pow(2, -48)), errorDist.Quantile(1 - Math.Pow(2, -48)));
+            var errorDist = new GEV(0, scaleGuess, shapeGuess); // Location is always 0 here
+            return new ParameterDistribution(errorDist, sampleMax, errorDist.Quantile(Math.Pow(2, -26)), errorDist.Quantile(1 - Math.Pow(2, -26))); // Sqrt epsilon quantile bounds
             //return new GEV(0, scaleGuess, shapeGuess);
         }
     }

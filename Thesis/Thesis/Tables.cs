@@ -595,9 +595,9 @@ namespace Thesis
         public static void ComparisonTableMediumSet(bool figure = false)
         {
             var dists = new IContinuousDistribution[] {
+                new Normal(-50, 2, Program.rand),
                 new Normal(-47, 0.5, Program.rand),
                 new Normal(-60, 3.5, Program.rand),
-                new Normal(-50, 2, Program.rand),
                 new Normal(-50.4, 0.4, Program.rand),
                 new Normal(-54, 6, Program.rand),
                 new Normal(-57, 0.6, Program.rand),

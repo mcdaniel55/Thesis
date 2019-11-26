@@ -62,12 +62,6 @@ namespace Thesis.BranchAndBound
                 var newActiveBranches = new List<Branch>();
                 foreach (Branch branch in activeBranches) { if (branch != null) newActiveBranches.AddRange(branch.GetBranches()); }
 
-                // Print the list to the log
-                for (int i = 0; i < activeBranches.Length; i++)
-                {
-                    Program.logger.WriteLine($"{activeBranches[i]?.ToString()}");
-                }
-
                 Program.logger.WriteLine($"Branched to produce {newActiveBranches.Count} new regions.");
                 
 
@@ -109,7 +103,7 @@ namespace Thesis.BranchAndBound
 
                 if (multiThread)
                 {
-                    int threadCount = Environment.ProcessorCount; // # of logical processors, including hyperthreading etc.
+                    int threadCount = Environment.ProcessorCount - 2; // # of logical processors, including hyperthreading etc.
                     
                     var tasks = new Task[threadCount];
                     for (int i = 0; i < tasks.Length; i++) { tasks[i] = null; } // Initialize the task array to null
@@ -195,7 +189,7 @@ namespace Thesis.BranchAndBound
                                             {
                                                 fitnessStorage[taskIdx][j] *= -1.0;
                                             }
-
+                                            Sorting.Sort(fitnessStorage);
                                             negatedDistributions[idx] = ParameterDistributions.NMinusOneOverNthQuantileViaSampleMinimumParameterDistribution(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
                                             //GEV dist = ParameterDistributions.SampleMinimumErrorDistMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
                                             //parameterDistributions[idx] = dist;
@@ -350,6 +344,13 @@ namespace Thesis.BranchAndBound
                         confidence -= smallestComplementDiscard; // Account for the cost in confidence
                     }
                     else break; // If we can't discard that one, then we can't do any better, so end the discard loop
+                }
+
+                // Print the list to the log
+                Program.logger.WriteLine($"Completed iteration {iteration}. Active branches:");
+                for (int i = 0; i < activeBranches.Length; i++)
+                {
+                    Program.logger.WriteLine($"{activeBranches[i]?.ToString()}");
                 }
 
                 #endregion

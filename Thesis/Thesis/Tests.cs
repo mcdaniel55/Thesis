@@ -28,7 +28,7 @@ namespace Thesis
 
             Logging.Log("Problem Initialized");
 
-            Branch[] branchSet = Problem.BranchAndBound(sampleSize: 300, iterations: 9, confidenceLevel: 0.98, cullDuplicates: true, multiThread: true);
+            Branch[] branchSet = Problem.BranchAndBound(sampleSize: 150, iterations: 9, confidenceLevel: 0.95, cullDuplicates: true, multiThread: true);
 
             // Print the set of branches produced by the B&B routine
             foreach (Branch branch in branchSet)
@@ -58,7 +58,7 @@ namespace Thesis
         {
             var solutionSpace = new IntervalBranch(0, 3.2);
             var bb = new SIDBranchAndBound<double>(solutionSpace, FitnessFunctions.ExampleFunction, GuidingParameter.OneOverNthQuantile);
-            var result = bb.BranchAndBound(200, 8, 0.9999, false, true);
+            var result = bb.BranchAndBound(200, 8, 0.99, false, false);
             Program.logger.WriteLine("Intro Optimization Results:");
             for (int i = 0; i < result.Length; i++)
             {
@@ -69,14 +69,14 @@ namespace Thesis
         public static void RunWickedCombOptimization()
         {
             var solutionSpace = new IntervalBranch(-0.15, 0.15); // Constraints
-            const double difficulty = 10;
-            const double xSquaredCoefficient = 5;
+            const double difficulty = 5;
+            const double xSquaredCoefficient = 10;
             const int sampleSize = 200;
             const double confidenceLevel = 0.99;
-            const int numSteps = 20;
+            const int numSteps = 15;
 
             var bb = new SIDBranchAndBound<double>(solutionSpace, x => FitnessFunctions.WickedComb(x, difficulty, xSquaredCoefficient), GuidingParameter.OneOverNthQuantile);
-            var result = bb.BranchAndBound(sampleSize, numSteps, confidenceLevel, false, true);
+            var result = bb.BranchAndBound(sampleSize, numSteps, confidenceLevel, false, false);
 
             Program.logger.WriteLine($"Wicked Comb (x, {difficulty}, {xSquaredCoefficient}) Size {sampleSize} Confidence {confidenceLevel} Optimization Results:");
             for (int i = 0; i < result.Length; i++)
@@ -90,10 +90,10 @@ namespace Thesis
             var solutionSpace = new RectangleBranch(-512, 512,-512, 512); // Constraints
             const int sampleSize = 200;
             const double confidenceLevel = 0.99;
-            const int numSteps = 10;
+            const int numSteps = 6;
 
             var bb = new SIDBranchAndBound<Tuple<double,double>>(solutionSpace, x => FitnessFunctions.EggHolder(x.Item1, x.Item2), GuidingParameter.OneOverNthQuantile);
-            var result = bb.BranchAndBound(sampleSize, numSteps, confidenceLevel, false, true);
+            var result = bb.BranchAndBound(sampleSize, numSteps, confidenceLevel, false, false);
 
             Program.logger.WriteLine($"Eggholder Size {sampleSize} Confidence {confidenceLevel} Optimization Results:");
             for (int i = 0; i < result.Length; i++)
@@ -110,6 +110,42 @@ namespace Thesis
             Console.WriteLine($"Outcome: {outcome}");
         }
 
+        public static void TestGEVLocation()
+        {
+            //var dist = new Normal(0, 1, Program.rand);
+            var dist = new Exponential(2, Program.rand);
+            double estimateLoc(int n) => Math.Sqrt(2 * Math.Log(n) - Math.Log(Math.Log(n)) - Math.Log(4 * Math.PI));
+            for (int n = 150; n < 500; n+=10)
+            {
+                double proportion = (n - 0.78) / n;
+                double quant = dist.InverseCumulativeDistribution(proportion);
+                double estimate = estimateLoc(n);
+                //Console.WriteLine($"Quantile: {quant} Est: {estimate} Error: {Math.Abs(estimate - quant)}");
+
+                var props = Interpolation.Linspace(0.000000001, 0.999999999, 10000);
+                var quants = new double[10000];
+                for (int i = 0; i < quants.Length; i++)
+                {
+                    quants[i] = dist.InverseCumulativeDistribution(props[i]);
+                }
+                PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersV4(quants, out double a, out double c, out double u);
+                var tailApprox = new PickandsApproximation(quants, PickandsApproximation.FittingMethod.V4);
+                var sample = new double[10000];
+                for (int i = 0; i < 10000; i++)
+                {
+                    double max = 0;
+                    for (int j = 0; j < n; j++) { max = Math.Max(max, tailApprox.Sample()); }
+                    sample[i] = max;
+                }
+                double shapeGuess = tailApprox.c;
+                double g1 = SpecialFunctions.Gamma(1 - shapeGuess);
+                double g2 = SpecialFunctions.Gamma(1 - 2 * shapeGuess);
+                double scaleGuess = Math.Sqrt(Statistics.Variance(sample) * shapeGuess * shapeGuess / (g2 - g1 * g1));
+                double locationGuess = Statistics.Mean(sample) - scaleGuess * (g1 - 1) / shapeGuess;
+                Console.WriteLine($"Quantile: {quant} IntroEst: {estimate} Error: {Math.Abs(estimate - quant)} Bootstrap:{locationGuess} Shape {shapeGuess}");
+            }
+
+        }
 
         public static void GenerateHardDistributionSet()
         {
@@ -130,9 +166,9 @@ namespace Thesis
             Logger output = new Logger("GEV Test A.csv");
             Logger output2 = new Logger("GEV Test B.csv");
             //var dist = new ChiSquared(4, Program.rand);
-            //var dist = new Beta(2, 2);
+            var dist = new Beta(2, 2);
             //var dist = new Beta(2, 5);
-            var dist = new Beta(2, 1.5);
+            //var dist = new Beta(2, 1.5);
             output.WriteLine($"Distribution: {dist.ToString().Replace(',',' ')}");
             //var dist = new Exponential(2, Program.rand);
             //var dist = new Gamma(2, 2, Program.rand);
@@ -428,6 +464,30 @@ namespace Thesis
                     $"{dist.CumulativeDistribution(distributionQuantiles[i])}," +
                     $"{pickandsApprox.CDF(distributionQuantiles[i])}");
             }
+
+            #region Temp for figure
+            output2.WriteLine("");
+            output2.WriteLine("TrueDist");
+            output2.WriteLine("\\draw[line width=1.5pt]");
+
+            for (int i = 0; i < distributionQuantiles.Length - 1; i++)
+            {
+                output2.WriteLine($"({distributionQuantiles[i]},{dist.CumulativeDistribution(distributionQuantiles[i])}) --");
+            }
+            output2.WriteLine($"({distributionQuantiles[distributionQuantiles.Length - 1]},{dist.CumulativeDistribution(distributionQuantiles[distributionQuantiles.Length - 1])});"); 
+
+            
+            output2.WriteLine("");
+            output2.WriteLine("Approx");
+            output2.WriteLine("\\draw[line width=1.5pt]");
+
+            for (int i = 0; i < distributionQuantiles.Length; i++)
+            {
+                output2.WriteLine($"({distributionQuantiles[i]},{pickandsApprox.CDF(distributionQuantiles[i])}) --");
+            }
+            output2.WriteLine($"({distributionQuantiles[distributionQuantiles.Length - 1]},{pickandsApprox.CDF(distributionQuantiles[distributionQuantiles.Length - 1])});");
+
+            #endregion
 
             // Clean up
             output.Dispose();

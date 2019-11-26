@@ -48,7 +48,8 @@ namespace Thesis
         /// <summary> Computes the inverse of the tail CDF </summary>
         public static double TailQuantileFunction(double q, double a, double c)
         {
-            return a / c * (Math.Pow(1 - q, -c) - 1);
+            if (c != 0) return a / c * (Math.Pow(1 - q, -c) - 1);
+            return -a * Math.Log(q);
         }
 
         /// <summary> Estimates the values of c and a based on a choice of M </summary>
@@ -390,7 +391,7 @@ namespace Thesis
             double variance = m2 - m1 * m1;
             double xBarMinusMu = m1 - tailData[0]; // Transition point is tailData[0]; mu is the TP, not the mean here
 
-            shapeParam = 0.5 * (1 - xBarMinusMu * xBarMinusMu / variance);
+            shapeParam = Math.Min(0.5 * (1 - xBarMinusMu * xBarMinusMu / variance), 0);
             scaleParam = xBarMinusMu * (1 - shapeParam);
 
 #if DEBUG
