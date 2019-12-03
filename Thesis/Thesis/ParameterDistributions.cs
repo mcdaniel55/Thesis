@@ -61,20 +61,53 @@ namespace Thesis
             return new Normal(medianEstimate, varianceEstimate);
         }
 
-        public static Normal MeanOfLessThanQuantile(double[] data, double q)
+        public static Normal MeanOfLessThanQuantile(double[] data, double q, Random rand = null)
         {
+            if (rand == null) rand = Program.rand;
             // Sort the data values in increasing order
             List<double> sortedData = new List<double>(data);
             sortedData.Sort();
 
-            // Find the qth quantile and remove everything above that
-            double qthQuantile = Statistics.Quantile(sortedData, q);
-            sortedData.RemoveAll(x => x > qthQuantile);
+            double lowerMean = 0;
+            //double quantile = Statistics.Quantile(sortedData, q);
+            int size = Math.Max(1, Math.Min((int)(sortedData.Count * q) + 1, sortedData.Count));
+            for (int i = 0; i < size; i++)
+            {
+                lowerMean += sortedData[i];
+            }
+            lowerMean /= size;
 
-            return MeanCLT(sortedData.ToArray());
+            var bootstrapObservations = new double[250];
+            var bootstrapSample = new double[sortedData.Count];
+            for (int obs = 0; obs < bootstrapObservations.Length; obs++)
+            {
+                for (int i= 0; i < bootstrapSample.Length; i++)
+                {
+                    bootstrapSample[i] = sortedData[rand.Next(sortedData.Count)];
+                }
+                Sorting.Sort(bootstrapSample);
+
+                double bsLowerMean = 0;
+                for (int i = 0; i < size; i++)
+                {
+                    bsLowerMean += bootstrapSample[i];
+                }
+                bsLowerMean /= size;
+
+                bootstrapObservations[obs] = bsLowerMean;
+            }
+
+            return new Normal(lowerMean, Math.Sqrt(Statistics.VarianceEstimate(bootstrapObservations)));
+
+            // Old version
+            // Find the qth quantile and remove everything above that
+            //double qthQuantile = Statistics.Quantile(sortedData, q);
+            //sortedData.RemoveAll(x => x > qthQuantile);
+
+            //return MeanCLT(sortedData.ToArray());
         }
 
-        public static ParameterDistribution NMinusOneOverNthQuantileViaSampleMinimumParameterDistribution(double[] data, double[] bootstrapStorage, Random rand = null)
+        public static ParameterDistribution OneOverNthQuantileViaSampleMinimumParameterDistribution(double[] data, double[] bootstrapStorage, Random rand = null)
         {
             if (rand == null) rand = Program.rand;
 

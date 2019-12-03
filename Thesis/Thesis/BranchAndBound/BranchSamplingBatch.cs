@@ -18,6 +18,7 @@ namespace Thesis.BranchAndBound
         {
             this.Branch = Branch;
             this.rand = rand ?? Program.rand;
+            BestObservedFitness = double.PositiveInfinity;
         }
 
 

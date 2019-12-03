@@ -24,34 +24,34 @@ namespace Thesis
                 PartAmbs: new int[Station.List.Count],
                 TargetAmbulanceCount: 10,
                 rand: Program.rand);
-            var Problem = new SIDBranchAndBound<Tuple<int[],int[]>>(solutionSpace, FitnessFunctions.EMSPlanFitness, GuidingParameter.OneOverNthQuantile);
+            var Problem = new SIDBranchAndBound<Tuple<int[],int[]>>(solutionSpace, FitnessFunctions.EMSPlanFitness, GuidingParameter.LowerMean);
 
             Logging.Log("Problem Initialized");
 
-            Branch[] branchSet = Problem.BranchAndBound(sampleSize: 150, iterations: 9, confidenceLevel: 0.95, cullDuplicates: true, multiThread: true);
+            Branch[] branchSet = Problem.BranchAndBound(sampleSize: 1000, iterations: 9, confidenceLevel: 0.95, cullDuplicates: true, multiThread: true);
 
             // Print the set of branches produced by the B&B routine
             foreach (Branch branch in branchSet)
             {
-                Console.WriteLine();
+                Program.logger.WriteLine("");
 
                 var plan = (PartialEMSPlanBranch)branch;
-                Console.WriteLine("Region: ");
+                Program.logger.WriteLine("Region: ");
                 for (int i = 0; i < Station.List.Count; i++)
                 {
-                    Console.Write($"Station: {Station.List[i].Name} Full: {plan.FullAmbs[i]} Part: {plan.PartAmbs[i]}");
+                    Program.logger.Write($"Station: {Station.List[i].Name} Full: {plan.FullAmbs[i]} Part: {plan.PartAmbs[i]}");
                 }
                 //Console.WriteLine($"Best score: {branch.BestObservation}");
                 //bestObserved = Math.Min(bestObserved, branch.BestObservation);
             }
-            
+
             // Do an exhaustive search of the reduced search space to find the set of optima
-            double bestObserved = double.PositiveInfinity;
+            //double bestObserved = double.PositiveInfinity;
 
             // ...
-            
-            Console.WriteLine();
-            Console.WriteLine($"Best observed in all regions :{bestObserved}");
+
+            Program.logger.WriteLine("");
+            Program.logger.WriteLine($"Best observed in all regions :{Problem.BestElementObserved} fitness: {Problem.BestFitnessObserved}");
         }
 
         public static void RunIntroOptimization()

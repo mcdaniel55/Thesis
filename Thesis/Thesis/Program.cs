@@ -30,7 +30,7 @@ namespace Thesis
 
             //Tests.TestPickands();
 
-            Tests.TestGEV();
+            //Tests.TestGEV();
 
             //Tests.RunIntroOptimization();
             //Tests.RunWickedCombOptimization();
@@ -41,7 +41,7 @@ namespace Thesis
 
             //Tests.TestNegatedParameterDistributionWrapper();
 
-            //Tests.RunEMSOptimization();
+            Tests.RunEMSOptimization();
 
 
             //Tests.TestGEVLocation();

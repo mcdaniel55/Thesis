@@ -118,7 +118,7 @@ namespace Thesis
         }
 
         /// <summary>
-        /// Looks at every pair-wise comparison between elements of normals and returns the index of the element with the greatest probability of being discarded
+        /// Looks at every pair-wise comparison between elements of normals and returns the index of the element with the greatest probability of being discarded. Smaller means and lower variances are "better".
         /// </summary>
         /// <remarks>This is a theta(n) operation in the asymptotic case as n -> infty. The n elements are presumably arranged in some cloud, and the optimal and anti-optimal sets
         /// are each roughly half of the perimeter of the cloud. If the cloud ~ n, then the perimeter ~ 2sqrt(n), so there are sqrt(n) in each of the optimal and
@@ -134,8 +134,9 @@ namespace Thesis
 
             // Find the sets of optimal and anti-optimal elements of normals
             List<int> optimalIndices = new List<int>(normals.Length); // elements that are nondominated in having small means and stdevs
-            List<int> antiOptimalIndices = new List<int>(normals.Length); // elements that do not dominate any other element by the same criteria
+            List<int> upperIndices = new List<int>(normals.Length); // elements that do not dominate any other element by the same criteria
 
+            /* // Version that finds lower-left and upper right
             for (int i = 0; i < normals.Length; i++)
             {
                 if (normals[i] == null) continue;
@@ -153,19 +154,38 @@ namespace Thesis
                 }
                 if (!dominates) { antiOptimalIndices.Add(i); }
                 if (!isDominated) { optimalIndices.Add(i); }
+            }*/
+
+            for (int i = 0; i < normals.Length; i++)
+            {
+                if (normals[i] == null) continue;
+                bool notInU = false;
+                bool isDominated = false;
+
+                for (int j = 0; j < normals.Length; j++)
+                {
+                    if (j == i || normals[j] == null) continue;
+                    if (normals[j].Mean < normals[i].Mean && normals[j].StdDev <= normals[i].StdDev
+                        || normals[j].StdDev < normals[i].StdDev && normals[j].Mean <= normals[i].Mean) isDominated = true;
+                    if (normals[i].Mean < normals[j].Mean && normals[i].StdDev >= normals[j].StdDev ||
+                        normals[i].StdDev > normals[j].StdDev && normals[i].Mean <= normals[j].Mean) notInU = true;
+                    if (notInU && isDominated) { break; }
+                }
+                if (!notInU) { upperIndices.Add(i); }
+                if (!isDominated) { optimalIndices.Add(i); }
             }
 
             // Compare each of the optimal elements against each of the antioptimal ones
-            for (int i = 0; i < antiOptimalIndices.Count; i++)
+            for (int i = 0; i < upperIndices.Count; i++)
             {
                 for (int j = 0; j < optimalIndices.Count; j++)
                 {
-                    if (antiOptimalIndices[i] == optimalIndices[j]) continue;
-                    double newprob = NormalPairwiseExact(normals[antiOptimalIndices[i]], normals[optimalIndices[j]]);
+                    if (upperIndices[i] == optimalIndices[j]) continue;
+                    double newprob = NormalPairwiseExact(normals[upperIndices[i]], normals[optimalIndices[j]]);
                     if (newprob > bestDiscardProbability)
                     {
                         bestDiscardProbability = newprob;
-                        bestIndex = antiOptimalIndices[i];
+                        bestIndex = upperIndices[i];
                     }
                 }
             }
@@ -374,8 +394,8 @@ namespace Thesis
             return complementProbs;
         }
 
-        /// <summary> Uses nested Clenshaw-Curtis quadrature on the alternative form with an invariant to compute the probability that each element is the minimum for a set of normal distributions to within a user-specified precision </summary>
-        /// <param name="negDistributions"> The set of normal distributions for which you want to compute P(X = min X) </param>
+        /// <summary> Uses nested Clenshaw-Curtis quadrature on the alternative form with an invariant to compute the probability that each element is the minimum for a set of parameter distributions, which are provided in negated form </summary>
+        /// <param name="negDistributions"> The set of negated parameter distributions for which you want to compute P(X = min X) </param>
         /// <param name="errorTolerance"> The maximum total error in P(X = min X) over all regions </param>
         /// <param name="maxIterations"> The maximum number of times the quadrature rule will be used, doubling in order each time </param>
         /// <returns></returns>
