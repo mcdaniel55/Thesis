@@ -13,6 +13,7 @@ namespace Thesis
         double CumulativeDistribution(double x);
         double Density(double x);
         double Sample();
+        double Quantile(double q);
         double GetUpperBound();
         double GetLowerBound();
         IContinuousDistribution GetWrappedDistribution();
@@ -42,6 +43,19 @@ namespace Thesis
         public double Sample()
         {
             return originalDistribution.Sample();
+        }
+
+        public double Quantile(double q) // Currently supports only these two
+        {
+            if (originalDistribution.GetType() == typeof(Normal))
+            {
+                return ((Normal)originalDistribution).InverseCumulativeDistribution(q);
+            }
+            if (originalDistribution.GetType() == typeof(GEV))
+            {
+                return ((GEV)originalDistribution).Quantile(q);
+            }
+            else throw new NotImplementedException($"Quantile function not defined for wrapped distribution type: {originalDistribution.GetType()}");
         }
 
         public static WrappedDistribution[] WrapDistributions(IContinuousDistribution[] distributions, double[] lowerBounds, double[] upperBounds)
@@ -97,6 +111,19 @@ namespace Thesis
         public double Sample()
         {
             return -originalDistribution.Sample();
+        }
+
+        public double Quantile(double q) // Currently supports only these two
+        {
+            if (originalDistribution.GetType() == typeof(Normal))
+            {
+                return -((Normal)originalDistribution).InverseCumulativeDistribution(q);
+            }
+            if (originalDistribution.GetType() == typeof(GEV))
+            {
+                return -((GEV)originalDistribution).Quantile(q);
+            }
+            else throw new NotImplementedException($"Quantile function not defined for wrapped distribution type: {originalDistribution.GetType()}");
         }
 
         public static NegatedDistribution[] NegateDistributions(IContinuousDistribution[] distributions, double[] lowerBounds, double[] upperBounds)
@@ -194,6 +221,19 @@ namespace Thesis
         public double Sample()
         {
             return estimate - originalDistribution.Sample();
+        }
+
+        public double Quantile(double q) // Currently supports only these two
+        {
+            if (originalDistribution.GetType() == typeof(Normal))
+            {
+                return estimate - ((Normal)originalDistribution).InverseCumulativeDistribution(q);
+            }
+            if (originalDistribution.GetType() == typeof(GEV))
+            {
+                return estimate - ((GEV)originalDistribution).Quantile(q);
+            }
+            else throw new NotImplementedException($"Quantile function not defined for wrapped distribution type: {originalDistribution.GetType()}");
         }
     }
 

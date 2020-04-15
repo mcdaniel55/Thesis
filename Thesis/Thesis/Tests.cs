@@ -630,5 +630,47 @@ namespace Thesis
 
         }
 
+        public static void TestQuantileTrap()
+        {
+            Xoshiro256StarStar rand = new Xoshiro256StarStar(8675309);
+            const int numberOfDists = 10;
+            //const double meanOfNormals = 50;
+            //const double stdDevOfNormals = 0.002;
+            double Shape() => 2 * rand.NextDouble() - 1;
+            double Scale() => 0.002 * rand.NextDouble() + 0;
+            double Location() => 180 * rand.NextDouble();
+            
+            IDistributionWrapper[] dists = new IDistributionWrapper[numberOfDists];
+            for (int i = 0; i < dists.Length; i++)
+            {
+                //dists[i] = new WrappedDistribution(new Normal(rand.NextDouble() * meanOfNormals * 2, 0 + Math.Abs(rand.NextDouble() * stdDevOfNormals)), -100, 200); // Bounds are unused here
+                dists[i] = new WrappedDistribution(new GEV(Location(), Scale(), Shape(), rand), -100, 100);
+            }
+            double[] exact = DiscardProbabilityComputation.ComplementsTrapezoid(dists, 50000);
+            Console.WriteLine("Exact:");
+            for (int i = 0; i < exact.Length; i++)
+            {
+                Console.WriteLine($"{i}: {dists[i].GetWrappedDistribution()} 1-P(D_i) = {exact[i]}");
+            }
+            exact = DiscardProbabilityComputation.ComplementsMonteCarloMaximizing(dists);
+            Console.WriteLine("MC:");
+            for (int i = 0; i < exact.Length; i++)
+            {
+                Console.WriteLine($"{i}: {dists[i].GetWrappedDistribution()} 1-P(D_i) = {exact[i]}");
+            }
+            double[] est;
+            int[] its = new int[] { 10, 20, 30, 40, 50, 75, 100, 200, 500, 1000, 2000, 20000 };
+            for (int i = 0; i < its.Length; i++)
+            {
+                int size = its[i];
+                est = DiscardProbabilityComputation.ComplementsQuantileTrapRule(dists, size);
+                Console.WriteLine($"Size {size}:");
+                for (int j = 0; j < est.Length; j++)
+                {
+                    Console.WriteLine($"{j}: {dists[j].GetWrappedDistribution()} 1-P(D_i) = {est[j]}");
+                }
+            }
+        }
+
     }
 }

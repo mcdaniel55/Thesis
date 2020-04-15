@@ -6,4 +6,5 @@
 
 * Don't sort the data inside methods if avoidable. The user of the method should provide sorted data, and it should be labeled as such in the parameter list.
 
-* Likewise, if there is time, move RNG specification out of the methods/objects and have it pass through parameters, so high-level code overtly specifies the RNG for lower level code and there is no "default" RNG.
+* Likewise, if there is time, consider moving RNG specification out of lower-level methods/objects and have it pass through parameters, so high-level code overtly specifies the RNG for lower level code.
+  This allows greater clarity and flexibility in the use of different generator instances in each thread, etc. which are seeded by the base instance.

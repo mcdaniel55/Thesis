@@ -601,7 +601,70 @@ namespace Thesis
             }
             return bestCounts;
         }
-        #endregion
+        
+        public static double[] ComplementsQuantileTrapRule(IDistributionWrapper[] negDistributions, int iterations = 100)
+        {
+            double[] output = new double[negDistributions.Length];
 
+            double[] weights = new double[iterations];
+            // Trap weights
+            //weights[0] = 0.5;
+            //weights[iterations - 1] = 0.5;
+            //for (int i = 0; i < weights.Length; i++) { weights[i] = 1; }
+
+            // Main loop
+            for (int distIdx = 0; distIdx < negDistributions.Length; distIdx++)
+            {
+                double[] abscissas = new double[iterations];
+                for (int i = 0; i < abscissas.Length; i++)
+                {
+                    abscissas[i] = negDistributions[distIdx].Quantile((1 - Math.Cos(Math.PI * i / (iterations-1))) / 2);
+                    //abscissas[i] = negDistributions[distIdx].Quantile((i + 0.5) / iterations);
+                }
+
+                // Move first and last
+                abscissas[0] = negDistributions[distIdx].Quantile(Math.Pow(2,-26));
+                abscissas[abscissas.Length-1] = negDistributions[distIdx].Quantile(1 - Math.Pow(2, -26));
+
+                // Trap weights
+                //weights[0] = 0.5;
+                //weights[iterations - 1] = 0.5;
+                weights[0] = 1;
+                weights[iterations - 1] = 1;
+                for (int i = 0; i < weights.Length; i++) { weights[i] = 1; }
+                // Apply deltas
+                weights[0] *= abscissas[1] - abscissas[0];
+                weights[weights.Length - 1] *= abscissas[abscissas.Length - 1] - abscissas[abscissas.Length - 2];
+                for (int i = 1; i < iterations - 1; i++)
+                {
+                    weights[i] *= (abscissas[i + 1] - abscissas[i - 1]) / 2;
+                }
+
+                double sum = 0;
+                for (int i = 0; i < iterations; i++)
+                {
+                    double product = negDistributions[distIdx].Density(abscissas[i]);
+                    for (int j = 0; j < distIdx; j++)
+                    {
+                        product *= negDistributions[j].CumulativeDistribution(abscissas[i]);
+                    }
+                    for (int j = distIdx + 1; j < negDistributions.Length; j++)
+                    {
+                        product *= negDistributions[j].CumulativeDistribution(abscissas[i]);
+                    }
+                    sum += product * weights[i];
+                }
+                output[distIdx] = sum;
+            }
+            return output;
+        }
+        #endregion
     }
+
+
+
+
+
+
+
 }

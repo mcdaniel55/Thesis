@@ -42,6 +42,7 @@ namespace Thesis
             //Tests.TestNegatedParameterDistributionWrapper();
 
             Tests.RunEMSOptimization();
+            //Tests.TestQuantileTrap();
 
 
             //Tests.TestGEVLocation();

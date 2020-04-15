@@ -167,5 +167,10 @@ namespace Thesis
         {
             throw new NotImplementedException();
         }
+
+        public override string ToString()
+        {
+            return $"GEV Location {location} Scale {scale} Shape {shape}";
+        }
     }
 }
