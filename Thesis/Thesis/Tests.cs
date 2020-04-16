@@ -448,9 +448,9 @@ namespace Thesis
                     $"{observationQuantiles[i] - upperQuantile}," +
                     $"{MonteCarloDistributionOfTheMaximum.CumulativeDensity(observationQuantiles[i])}," +
                     //$"{quantiles[i] - sample[sample.Length - 1]}," +
-                    $"{estimatedGEVUnfitted.Quantile(proportions[i]) - estimatedGEVUnfitted.location}," +
+                    $"{estimatedGEVUnfitted.InverseCumulativeDistribution(proportions[i]) - estimatedGEVUnfitted.location}," +
                     $"{proportions[i]}," +
-                    $"{fittedApproxModel.Quantile(proportions[i]) - fittedApproxModel.location}," +
+                    $"{fittedApproxModel.InverseCumulativeDistribution(proportions[i]) - fittedApproxModel.location}," +
                     $"{proportions[i]}");
 
             }
@@ -589,7 +589,7 @@ namespace Thesis
             IDistributionWrapper[] wrappedDists = new IDistributionWrapper[dists.Length];
             for (int i = 0; i < dists.Length; i++)
             {
-                wrappedDists[i] = new WrappedDistribution(dists[i], dists[i].Quantile(ep), dists[i].Quantile(complementEp));
+                wrappedDists[i] = new WrappedDistribution(dists[i], dists[i].InverseCumulativeDistribution(ep), dists[i].InverseCumulativeDistribution(complementEp));
             }
 
             double[] complements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(wrappedDists);

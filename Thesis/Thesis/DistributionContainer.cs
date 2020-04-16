@@ -53,7 +53,7 @@ namespace Thesis
             }
             if (originalDistribution.GetType() == typeof(GEV))
             {
-                return ((GEV)originalDistribution).Quantile(q);
+                return ((GEV)originalDistribution).InverseCumulativeDistribution(q);
             }
             else throw new NotImplementedException($"Quantile function not defined for wrapped distribution type: {originalDistribution.GetType()}");
         }
@@ -121,7 +121,7 @@ namespace Thesis
             }
             if (originalDistribution.GetType() == typeof(GEV))
             {
-                return -((GEV)originalDistribution).Quantile(q);
+                return -((GEV)originalDistribution).InverseCumulativeDistribution(q);
             }
             else throw new NotImplementedException($"Quantile function not defined for wrapped distribution type: {originalDistribution.GetType()}");
         }
@@ -231,7 +231,7 @@ namespace Thesis
             }
             if (originalDistribution.GetType() == typeof(GEV))
             {
-                return estimate - ((GEV)originalDistribution).Quantile(q);
+                return estimate - ((GEV)originalDistribution).InverseCumulativeDistribution(q);
             }
             else throw new NotImplementedException($"Quantile function not defined for wrapped distribution type: {originalDistribution.GetType()}");
         }

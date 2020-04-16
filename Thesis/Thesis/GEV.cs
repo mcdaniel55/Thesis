@@ -9,6 +9,7 @@ namespace Thesis
     {
         public readonly double location, scale, shape;
         public Random RandomSource { get; set; }
+        private const double SHAPE_EPSILON = 1E-6;
 
         public GEV(double location, double scale, double shape, Random rand = null)
         {
@@ -22,7 +23,7 @@ namespace Thesis
         {
             get
             {
-                if (shape == 0) return location;
+                if (Math.Abs(shape) < SHAPE_EPSILON) return location;
                 return location + scale * (Math.Pow(1 + shape, -shape) - 1) / shape;
             }
         }
@@ -31,7 +32,7 @@ namespace Thesis
         {
             get
             {
-                if (shape <= 0) return double.NegativeInfinity;
+                if (shape <= SHAPE_EPSILON) return double.NegativeInfinity;
                 return location - scale / shape;
             }
         }
@@ -40,7 +41,7 @@ namespace Thesis
         {
             get
             {
-                if (shape >= 0) return double.PositiveInfinity;
+                if (shape >= -SHAPE_EPSILON) return double.PositiveInfinity;
                 return location - scale / shape;
             }
         }
@@ -49,7 +50,7 @@ namespace Thesis
         {
             get
             {
-                if (shape == 0) return location + scale * Constants.EulerMascheroni;
+                if (Math.Abs(shape) < SHAPE_EPSILON) return location + scale * Constants.EulerMascheroni;
                 if (shape < 1) return location + scale * (SpecialFunctions.Gamma(1 - shape) - 1) / shape;
                 return double.PositiveInfinity;
             }
@@ -59,10 +60,10 @@ namespace Thesis
         {
             get
             {
-                if (shape == 0) return scale * scale * Math.PI * Math.PI / 6;
+                if (Math.Abs(shape) < SHAPE_EPSILON) return scale * scale * Math.PI * Math.PI / 6;
                 if (shape >= 0.5) return double.PositiveInfinity;
                 double g1 = SpecialFunctions.Gamma(1 - shape);
-                return scale * scale * (SpecialFunctions.Gamma(1-2*shape) - g1 * g1) / (shape * shape);
+                return scale * scale * (SpecialFunctions.Gamma(1 - 2 * shape) - g1 * g1) / (shape * shape);
             }
         }
 
@@ -104,7 +105,7 @@ namespace Thesis
         {
             get
             {
-                if (shape == 0) return location - scale * Math.Log(Math.Log(2));
+                if (Math.Abs(shape) < SHAPE_EPSILON) return location - scale * Math.Log(Math.Log(2));
                 return location + scale * (Math.Pow(Math.Log(2), -shape) - 1) / shape;
             }
         }
@@ -112,7 +113,7 @@ namespace Thesis
         public double CumulativeDistribution(double x)
         {
             double s = (x - location) / scale;
-            if (shape == 0) return Math.Exp(-Math.Exp(-s));
+            if (Math.Abs(shape) < SHAPE_EPSILON) return Math.Exp(-Math.Exp(-s));
             if (shape > 0 && s <= -1.0 / shape) return 0;
             if (shape < 0 && s >= -1.0 / shape) return 1;
 
@@ -122,24 +123,24 @@ namespace Thesis
         public double Density(double x)
         {
             double s = (x - location) / scale;
-            if (shape == 0) return Math.Exp(-s) * Math.Exp(-Math.Exp(-s));
-            if (shape > 0 && s <= -1.0 / shape) return 0;
-            if (shape < 0 && s >= -1.0 / shape) return 0;
+            if (Math.Abs(shape) < SHAPE_EPSILON) return Math.Exp(-s) * Math.Exp(-Math.Exp(-s)) / scale;
+            if (shape >= SHAPE_EPSILON && s <= -1.0 / shape) return 0;
+            if (shape <= -SHAPE_EPSILON && s >= -1.0 / shape) return 0;
             return Math.Pow(1 + shape * s, -1.0 / shape - 1) * Math.Exp(-Math.Pow(1 + shape * s, -1.0 / shape)) / scale; // The / scale here is from the chain rule on the transformation S(x)
         }
 
         public double DensityLn(double x)
         {
             double s = (x - location) / scale;
-            if (shape == 0) return -Math.Exp(-s) - s;
-            if (shape > 0 && s <= -1.0 / shape) return double.NegativeInfinity;
-            if (shape < 0 && s >= -1.0 / shape) return double.NegativeInfinity;
-            return (-1.0 / shape - 1) * Math.Log(1 + shape * s) - Math.Pow(1 + shape * s, -1.0 / shape);
+            if (Math.Abs(shape) < SHAPE_EPSILON) return -Math.Exp(-s) - s - Math.Log(scale);
+            if (shape >= SHAPE_EPSILON && s <= -1.0 / shape) return double.NegativeInfinity;
+            if (shape <= -SHAPE_EPSILON && s >= -1.0 / shape) return double.NegativeInfinity;
+            return (1.0 / 1 - shape) * Math.Log(1 + shape * s) - Math.Pow(1 + shape * s, -1.0 / shape) - Math.Log(scale);
         }
 
-        public double Quantile(double q)
+        public double InverseCumulativeDistribution(double q)
         {
-            if (shape == 0)
+            if (Math.Abs(shape) < SHAPE_EPSILON)
             {
                 if (q == 0) return double.NegativeInfinity;
                 if (q == 1) return double.PositiveInfinity;
@@ -152,14 +153,14 @@ namespace Thesis
 
         public double Sample()
         {
-            return Quantile(RandomSource.NextDouble());
+            return InverseCumulativeDistribution(RandomSource.NextDouble());
         }
 
         public void Samples(double[] values)
         {
             for (int i = 0; i < values.Length; i++)
             {
-                values[i] = Quantile(RandomSource.NextDouble());
+                values[i] = InverseCumulativeDistribution(RandomSource.NextDouble());
             }
         }
 

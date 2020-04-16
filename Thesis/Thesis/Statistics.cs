@@ -19,6 +19,17 @@ namespace Thesis
             return sum / data.Count;
         }
 
+        public static double MeanAbsoluteDeviation(IList<double> data)
+        {
+            double sum = 0;
+            double mean = Mean(data);
+            for (int i = 0; i < data.Count; i++)
+            {
+                sum += Math.Abs(data[i] - mean);
+            }
+            return sum / data.Count;
+        }
+
         public static double VarianceEstimate(IList<double> sample)
         {
             double mean = Mean(sample);

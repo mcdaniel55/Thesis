@@ -44,7 +44,6 @@ namespace Thesis
             Tests.RunEMSOptimization();
             //Tests.TestQuantileTrap();
 
-
             //Tests.TestGEVLocation();
 
             Console.WriteLine("Done.");

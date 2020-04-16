@@ -198,7 +198,7 @@ namespace Thesis
             double sampleMax = double.NegativeInfinity; // Compute the sample max
             for (int i = 0; i < data.Length; i++) { sampleMax = Math.Max(sampleMax, data[i]); }
             var errorDist = new GEV(0, scaleGuess, shapeGuess); // Location is always 0 here
-            return new ParameterDistribution(errorDist, sampleMax, errorDist.Quantile(Math.Pow(2, -26)), errorDist.Quantile(1 - Math.Pow(2, -26))); // Sqrt epsilon quantile bounds
+            return new ParameterDistribution(errorDist, sampleMax, errorDist.InverseCumulativeDistribution(Math.Pow(2, -26)), errorDist.InverseCumulativeDistribution(1 - Math.Pow(2, -26))); // Sqrt epsilon quantile bounds
             //return new GEV(0, scaleGuess, shapeGuess);
         }
     }
