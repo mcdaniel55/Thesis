@@ -170,10 +170,7 @@ namespace Thesis.BranchAndBound
                 {
                     int threadCount = Environment.ProcessorCount; // # of logical processors, including hyperthreading etc.
                     //int threadCount = 4; // Temp limit
-                    ParallelOptions options = new ParallelOptions();
-                    options.MaxDegreeOfParallelism = threadCount;
-                    
-                    Parallel.For(0, batches.Length, options, (int i) => { GetParameterDistribution(i); } );
+                    Parallel.For(0, batches.Length, new ParallelOptions() { MaxDegreeOfParallelism = threadCount }, (int i) => { GetParameterDistribution(i); } );
                     
                     #region Old Code
                     /*
@@ -298,7 +295,7 @@ namespace Thesis.BranchAndBound
                 
                 #endregion
 
-                // Update the best observation so far (this is not yet implemented at a lower level)
+                // Update the best observation so far (this is not yet implemented at a lower level within the batches themselves)
                 for (int i = 0; i < batches.Length; i++)
                 {
                     if (batches[i].BestObservedFitness < BestFitnessObserved)
@@ -372,14 +369,16 @@ namespace Thesis.BranchAndBound
                 {
                     // If the guiding parameter is the 1/nth quantile, then the integral will become too hard to compute. 
                     // Use a foolproof alternative for now, until we can find a better way to compute it
-                    discardComplements = DiscardProbabilityComputation.ComplementsMonteCarloMaximizing(negatedDistributions);
+                    //discardComplements = DiscardProbabilityComputation.ComplementsMonteCarloMaximizing(negatedDistributions);
+                    //discardComplements = DiscardProbabilityComputation.ComplementsQuantileTrapRule(negatedDistributions);
+                    discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions);
                 }
                 else
                 {
                     // Debug this
-                    //discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions, errorTolerance: 1E-8, maxIterations: 10);
+                    discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions, errorTolerance: 1E-8, maxIterations: 10);
                     // Temp
-                    discardComplements = DiscardProbabilityComputation.ComplementsMonteCarloMaximizing(negatedDistributions);
+                    //discardComplements = DiscardProbabilityComputation.ComplementsMonteCarloMaximizing(negatedDistributions);
                 }
                 
                 // --- Discarding ---
