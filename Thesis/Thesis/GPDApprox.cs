@@ -5,8 +5,166 @@ using MathNet.Numerics.LinearAlgebra;
 
 namespace Thesis
 {
-    static class PickandsBalkemaDeHaan
+    /// <summary>
+    /// An approximation of the CDF and QF of the distribution of a dataset, produced by attaching a fitted GPD tail to a linear interpolation of the ECDF
+    /// </summary>
+    public class GPDApproximation
     {
+        public double a, c; // Parameters, with c corresponding to the gamma or xi parameter of the associated GEV distribution
+        public double transitionProportion;
+        public double transitionAbscissa;
+        List<double> sortedData;
+        Random rand;
+        const double SHAPE_EPSILON = 1E-6;
+
+        public enum FittingMethod { Pickands_SupNorm, BFGS_MSE, Moments_MSE, V4 }
+
+        public GPDApproximation(IList<double> data, FittingMethod method = FittingMethod.Pickands_SupNorm, Random rand = null)
+        {
+            if (data.Count < 30) throw new ArgumentException("Insufficient data count for Pickands Balkema De Haan theorem.");
+            sortedData = new List<double>(data);
+            sortedData.Sort();
+            int m; // Transition index
+
+            switch (method)
+            {
+                case FittingMethod.BFGS_MSE:
+                    ApproximateExcessDistributionParametersBFGS(sortedData, out a, out c, out transitionAbscissa);
+                    // Compute the index of the closest element that is at or before u in the data
+                    int transitionIndex = sortedData.BinarySearch(transitionAbscissa);
+                    if (transitionIndex < 0) transitionIndex = ~transitionIndex;
+                    transitionProportion = transitionIndex * 1.0 / sortedData.Count; // Shouldn't this be + 1 here?
+                    break;
+
+                case FittingMethod.Moments_MSE:
+                    ApproximateExcessDistributionParametersMoments(sortedData, out a, out c, out m);
+                    transitionProportion = (sortedData.Count - m + 1.0) / sortedData.Count;
+                    transitionAbscissa = sortedData[sortedData.Count - m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
+                    break;
+
+                case FittingMethod.V4:
+                    ApproximateExcessDistributionParametersV4(sortedData, out a, out c, out transitionAbscissa);
+                    int transitionIdx = sortedData.BinarySearch(transitionAbscissa);
+                    if (transitionIdx < 0) 
+                    {
+                        transitionIdx = ~transitionIdx; // Now the index of the next-largest element 
+                        if (transitionIdx == 0) { transitionProportion = 0; break; }
+                        transitionProportion = Interpolation.Lerp(
+                            sortedData[transitionIdx - 1], transitionIdx * 1.0 / sortedData.Count, 
+                            sortedData[transitionIdx], (transitionIdx + 1) * 1.0 / sortedData.Count, 
+                            transitionAbscissa);
+                        break;
+                    }
+                    transitionProportion = (transitionIdx + 1) * 1.0 / sortedData.Count;
+                    break;
+
+                default:
+                    ApproximateExcessDistributionParametersPickands(sortedData, out a, out c, out m); // Write m to transitionIndex
+                    transitionProportion = (sortedData.Count - 4 * m + 1.0) / sortedData.Count;
+                    transitionAbscissa = sortedData[sortedData.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
+                    break;
+
+            }
+            
+            this.rand = rand ?? Program.rand;
+        }
+        
+        public double CDF(double x)
+        {
+            if (x <= transitionAbscissa) // ECDF Case
+            {
+                // Fast search for which elements to interpolate between
+                int idx = sortedData.BinarySearch(x);
+                if (idx < 0) idx = ~idx;
+                else idx++; // Left-continuity here
+                return idx * 1.0 / sortedData.Count;
+            }
+            // Pickands' tail case
+            x -= transitionAbscissa;
+            //double offset = (transitionIndex + 1.0) / data.Count;
+            double scale = 1 - transitionProportion;
+            return scale * TailCDF(x, a, c) + transitionProportion;
+        }
+
+        public double Quantile(double q)
+        {
+            //double offset = (transitionIndex + 1.0) / data.Count;
+            if (q > transitionProportion) // Pickands approximation case
+            {
+                // Renormalize q for the tail QF
+                double scale = 1 - transitionProportion;
+                q = (q - transitionProportion) / scale;
+                return transitionAbscissa + TailQuantileFunction(q, a, c);
+            }
+            // ECDF case
+            return sortedData[(int)(q * sortedData.Count)];
+        }
+
+        public double Sample()
+        {
+            return Quantile(rand.NextDouble());
+        }
+
+        public void Samples(double[] array)
+        {
+            for (int i = 0; i < array.Length; i++)
+            {
+                array[i] = Quantile(rand.NextDouble());
+            }
+        }
+
+        #region Static Methods
+        /// <summary> Constructs an alternative ContinuousDistribution version of the approximation with a piecewise-linear ECDF and an upper tail generated using Pickands' algorithm.  </summary>
+        /// <param name="data"> An indexed set (array, list, etc.) of observations from a random variable, sorted in increasing order. </param>
+        /// <remarks> This is wonderful for testing, but relatively expensive computation and storage-wise. This also uses the right-continuous rather than left-continuous version of the ECDF, though it hardly matters.</remarks>
+        public static ContinuousDistribution ApproximatePiecewiseDistributionWithUpperTail(IList<double> data, int resolution = 1000)
+        {
+            // --- Construct the linear ECDF ---
+            // Copy the abscissas from the sample
+            List<double> abscissas = new List<double>(data.Count + resolution);
+            abscissas.AddRange(data);
+            // Evaluate the ECDF
+            List<double> cdfVals = new List<double>(data.Count + resolution);
+            for (int i = 0; i < data.Count; i++)
+            {
+                cdfVals.Add(i * 1.0 / data.Count);
+            }
+
+            // --- Attach the tail ---
+            // Estimate the tail parameters
+            ApproximateExcessDistributionParametersPickands(data, out double a, out double c, out int m);
+
+            // Remove the last 4m-1 CDF values so we can replace them with the tail
+            abscissas.RemoveRange(abscissas.Count - 4 * m + 1, 4 * m - 1);
+            cdfVals.RemoveRange(cdfVals.Count - 4 * m + 1, 4 * m - 1);
+            // The last element of the CDF approximation is now Z_4M
+
+            // Generate tail values evenly spaced over the quantiles of the conditional excess distribution function 1-G(x)
+            var quantiles = new List<double>(Interpolation.Linspace(0, 1, resolution + 1));
+            // Remove the first point, since we already have a point in the CDF at u and the conditional excess will always be 0 there
+            quantiles.RemoveAt(0);
+            // If the tail is unbounded, replace the quantile at 1 with 1 - 4 * epsilon
+            //if (c >= 0) { quantiles.RemoveAt(quantiles.Count - 1); }
+            if (c >= 0) { quantiles[quantiles.Count - 1] = 1 - Math.Pow(2, -50); }
+            // Replace the proportions with their associated abscissas (eg, the actual quantiles)
+            double Z4M = abscissas[abscissas.Count - 1]; // This is where the tail is to be attached
+            for (int i = 0; i < quantiles.Count; i++)
+            {
+                quantiles[i] = TailQuantileFunction(quantiles[i], a, c);
+            }
+            // Add the CDF values first, then translate and add the abscissas
+            double offset = cdfVals[cdfVals.Count - 1]; // Vertical offset
+            double scale = 1 - offset; // How much of the full unit probability is left for the tail
+            for (int i = 0; i < quantiles.Count; i++)
+            {
+                cdfVals.Add(scale * TailCDF(quantiles[i], a, c) + offset);
+                quantiles[i] += Z4M;
+            }
+            abscissas.AddRange(quantiles);
+
+            return new ContinuousDistribution(abscissas, cdfVals);
+        }
+
         // This trichotomy is how it's written in the paper, but these can all be computed by the first case
         private static double ExcessDistributionFunctionDeprecated(double x, double a, double c)
         {
@@ -31,8 +189,8 @@ namespace Thesis
         /// <param name="c"></param>
         public static double ExcessDistributionFunction(double x, double a, double c)
         {
-            if (c < 0 && x > -a / c) return 0;
-            if (c == 0) return Math.Exp(-x / a);
+            if (c < -SHAPE_EPSILON && x > -a / c) return 0;
+            if (Math.Abs(c) < SHAPE_EPSILON) return Math.Exp(-x / a);
             return Math.Pow(1 + c * x / a, -1 / c);
         }
 
@@ -164,12 +322,12 @@ namespace Thesis
             m = bestFitM;
             EstimateParams(data, bestFitM, out c, out a);
         }
-        
+
         // Data must be sorted before using this method
         internal static void ApproximateExcessDistributionParametersBFGS(List<double> data, out double a, out double c, out double u)
         {
             double Fitness(Vector<double> input) // Input is assumed to be (a,c,u)
-            { 
+            {
                 double sum = 0;
                 //double weightsum = 0;
 
@@ -233,7 +391,7 @@ namespace Thesis
                 double sum2 = 0;
                 for (int i = 0; i < k; i++)
                 {
-                    double deviation = Math.Log(data[data.Count - i - 1]) - Math.Log(data[data.Count-1]);
+                    double deviation = Math.Log(data[data.Count - i - 1]) - Math.Log(data[data.Count - 1]);
                     sum1 += deviation;
                     sum2 += deviation * deviation;
                 }
@@ -247,7 +405,7 @@ namespace Thesis
                 return (m2 - 2 * m1 * m1) / (2 * (m2 - m1 * m1));
                 //sigmaHat = data[data.Count - k - 1] * m1 * (1 - gammaHat);
             }
-            
+
             double MSE(int k, double aHat, double gammaHat)
             {
                 double sum = 0;
@@ -391,7 +549,8 @@ namespace Thesis
             double variance = m2 - m1 * m1;
             double xBarMinusMu = m1 - tailData[0]; // Transition point is tailData[0]; mu is the TP, not the mean here
 
-            shapeParam = Math.Min(0.5 * (1 - xBarMinusMu * xBarMinusMu / variance), 0);
+            //shapeParam = Math.Min(0.5 * (1 - xBarMinusMu * xBarMinusMu / variance), 0); // Clamped to non-positive shapes
+            shapeParam = 0.5 * (1 - xBarMinusMu * xBarMinusMu / variance);
             scaleParam = xBarMinusMu * (1 - shapeParam);
 
 #if DEBUG
@@ -407,26 +566,19 @@ namespace Thesis
         {
             // The upper tail is defined here by an ECDF interpolating linearly from (u,0) to (x_i, i/n) for data x_1, x_2, ..., x_n all greater than u.
             // This is the model from which we compute the upper tail parameters, using method of moments.
-
-            double WeightedMidpointMSE(IList<double> tailData, double scaleParam, double shapeParam)
+            // This midpoint version works slightly better than the plain ECDF
+            double MidpointMSE(IList<double> tailData, double scaleParam, double shapeParam)
             {
                 int n = tailData.Count;
 
                 double sum = 0;
-                for (int i = 0; i < n - 1 ; i++) // n - 1?
+                for (int i = 0; i < n - 1; i++)
                 {
                     double GHat = TailCDF(0.5 * (tailData[i] + tailData[i + 1]) - tailData[0], scaleParam, shapeParam);
-                    double residual = (2.0 * i + 1) / (2.0 * n) - GHat; // 2i + 3?
+                    double residual = (2.0 * i + 1) / (2.0 * n) - GHat;
                     sum += residual * residual;
                 }
-                //return Math.Exp(5.54517744448 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.125 in shape causes a doubling of cost to fitness
-                //return Math.Exp(3.4657359028 * Math.Abs(shapeParam)) * sum / (n - 1); // Every increase of 0.2 in shape causes a doubling of cost to fitness
-                //return (0.5 * Math.Exp(shapeParam * shapeParam)) * sum / (n - 1);
-                //return Math.Log(1 + Math.Abs(shapeParam * shapeParam)) * sum / (n - 1);// This is good
-                //return (1 + Math.Pow(2, Math.Abs(shapeParam))) * sum / (n - 1); // Also good
-                //return (1 + Math.Abs(shapeParam)) * sum / (n - 1); // Weighted so that smaller magnitudes of the shape parameter are preferred
-                return sum / (n - 1); // No weighting
-                //return Math.Pow(2, Math.Abs(shapeParam) * 5) * sum / (n - 1);
+                return sum / (n - 1);
             }
 
             double GetScore(double uval, out double scaleParam, out double shapeParam)
@@ -435,14 +587,9 @@ namespace Thesis
                 EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
                 scaleParam = scaleEst;
                 shapeParam = shapeEst;
-                double score = WeightedMidpointMSE(tailData, scaleEst, shapeEst);
+                double score = MidpointMSE(tailData, scaleEst, shapeEst);
                 return score;
             }
-            
-            // Rescale to a new scoring where smaller magnitudes of shape and/or larger scales are preferred
-            //double NewScale(double shapeVal) => Math.Pow(2, Math.Abs(shapeVal) * 5);
-            //double NewScale(double shapeVal, double scaleVal) => Math.Pow(2, Math.Abs(shapeVal) / scaleVal);
-            double NewScale(double shapeVal, double scaleVal) => Math.Exp(6 * Math.Abs(shapeVal)); // e^-(c/a)
 
             // Try several choices of u evenly spaced over (x_0, x_n-3), and keep the best fit
             var uValues = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 5], sortedData.Count / 4);
@@ -453,7 +600,6 @@ namespace Thesis
             for (int i = 0; i < uValues.Length; i++)
             {
                 double score = GetScore(uValues[i], out double scaleEst, out double shapeEst);
-                score *= NewScale(shapeEst, scaleEst);
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -464,15 +610,12 @@ namespace Thesis
             }
             // --- Refine the best so far by bisection search ---
             double delta = uValues[1] - uValues[0];
-            //bestScore *= NewScale(bestC, bestA);
             for (int i = 0; i < 10; i++)
             {
                 delta *= 0.5;
                 double forwardU = Math.Min(bestU + delta, sortedData[sortedData.Count - 3]); // Don't go so high that we don't have data to work with
                 double forwardScore = GetScore(forwardU, out double forwardScale, out double forwardShape);
-                forwardScore *= NewScale(forwardShape, forwardScale);
                 double backwardScore = GetScore(bestU - delta, out double backwardScale, out double backwardShape);
-                backwardScore *= NewScale(backwardShape, backwardScale);
                 if (forwardScore < bestScore)
                 {
                     bestScore = forwardScore;
@@ -492,22 +635,6 @@ namespace Thesis
             u = bestU;
             a = bestA;
             c = bestC;
-
-
-            // --- Testing ---
-            /*Program.logger.WriteLine($"Selected u:{bestU}, a:{bestA}, c:{bestC}, fitness:{bestScore}");
-
-            var uvals = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 3], 1000);
-            Program.logger.WriteLine("u,a,c,fitness");
-            for (int i = 0; i < uvals.Length; i++)
-            {
-                double transitionX = uvals[i];
-                var tailData = GetTailData(sortedData, transitionX);
-                EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
-                double fitness = WeightedMidpointMSE(tailData, scaleEst, shapeEst);
-                Program.logger.WriteLine($"{transitionX},{scaleEst},{shapeEst},{fitness}");
-            }*/
-            
         }
 
 
@@ -618,167 +745,6 @@ namespace Thesis
                 return smallestDev;
             }
         }
-    }
-
-
-    /// <summary>
-    /// An approximation of the CDF and QF of the distribution of a dataset, produced by following Pickand's approach in his 1975 paper.
-    /// </summary>
-    public class PickandsApproximation
-    {
-        public double a, c; // Parameters, with c corresponding to the gamma or xi parameter of the associated GEV distribution
-        public double transitionProportion;
-        public double transitionAbscissa;
-        readonly List<double> sortedData;
-        readonly Random rand;
-
-        public enum FittingMethod { Pickands_SupNorm, BFGS_MSE, Moments_MSE, V4 }
-
-        public PickandsApproximation(IList<double> data, FittingMethod method = FittingMethod.Pickands_SupNorm, Random rand = null)
-        {
-            if (data.Count < 30) throw new ArgumentException("Insufficient data count for Pickands Balkema De Haan.");
-            sortedData = new List<double>(data);
-            sortedData.Sort();
-            int m; // Transition index
-
-            switch (method)
-            {
-                case FittingMethod.BFGS_MSE:
-                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersBFGS(sortedData, out a, out c, out transitionAbscissa);
-                    // Compute the index of the closest element that is at or before u in the data
-                    int transitionIndex = sortedData.BinarySearch(transitionAbscissa);
-                    if (transitionIndex < 0) transitionIndex = ~transitionIndex;
-                    transitionProportion = transitionIndex * 1.0 / sortedData.Count; // Shouldn't this be + 1 here?
-                    break;
-
-                case FittingMethod.Moments_MSE:
-                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersMoments(sortedData, out a, out c, out m);
-                    transitionProportion = (sortedData.Count - m + 1.0) / sortedData.Count;
-                    transitionAbscissa = sortedData[sortedData.Count - m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
-                    break;
-
-                case FittingMethod.V4:
-                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersV4(sortedData, out a, out c, out transitionAbscissa);
-                    int transitionIdx = sortedData.BinarySearch(transitionAbscissa);
-                    if (transitionIdx < 0) 
-                    {
-                        transitionIdx = ~transitionIdx; // Now the index of the next-largest element 
-                        if (transitionIdx == 0) { transitionProportion = 0; break; }
-                        transitionProportion = Interpolation.Lerp(
-                            sortedData[transitionIdx - 1], transitionIdx * 1.0 / sortedData.Count, 
-                            sortedData[transitionIdx], (transitionIdx + 1) * 1.0 / sortedData.Count, 
-                            transitionAbscissa);
-                        break;
-                    }
-                    transitionProportion = (transitionIdx + 1) * 1.0 / sortedData.Count;
-                    break;
-
-                default:
-                    PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(sortedData, out a, out c, out m); // Write m to transitionIndex
-                    transitionProportion = (sortedData.Count - 4 * m + 1.0) / sortedData.Count;
-                    transitionAbscissa = sortedData[sortedData.Count - 4 * m]; // Convert from m to the actual transitionIndex; m is guaranteed to be > 0
-                    break;
-
-            }
-            
-            if (rand == null) rand = Program.rand;
-            this.rand = rand;
-        }
-        
-        public double CDF(double x)
-        {
-            if (x <= transitionAbscissa) // ECDF Case
-            {
-                // Fast search for which elements to interpolate between
-                int idx = sortedData.BinarySearch(x);
-                if (idx < 0) idx = ~idx;
-                else idx++; // Left-continuity here
-                return idx * 1.0 / sortedData.Count;
-            }
-            // Pickands' tail case
-            x -= transitionAbscissa;
-            //double offset = (transitionIndex + 1.0) / data.Count;
-            double scale = 1 - transitionProportion;
-            return scale * PickandsBalkemaDeHaan.TailCDF(x, a, c) + transitionProportion;
-        }
-
-        public double Quantile(double q)
-        {
-            //double offset = (transitionIndex + 1.0) / data.Count;
-            if (q > transitionProportion) // Pickands approximation case
-            {
-                // Renormalize q for the tail QF
-                double scale = 1 - transitionProportion;
-                q = (q - transitionProportion) / scale;
-                return transitionAbscissa + PickandsBalkemaDeHaan.TailQuantileFunction(q, a, c);
-            }
-            // ECDF case
-            return sortedData[(int)(q * sortedData.Count)];
-        }
-
-        public double Sample()
-        {
-            return Quantile(rand.NextDouble());
-        }
-
-        public void Samples(double[] array)
-        {
-            for (int i = 0; i < array.Length; i++)
-            {
-                array[i] = Quantile(rand.NextDouble());
-            }
-        }
-        
-        /// <summary> Constructs an alternative ContinuousDistribution version of the approximation with a piecewise-linear ECDF and an upper tail generated using Pickands' algorithm.  </summary>
-        /// <param name="data"> An indexed set (array, list, etc.) of observations from a random variable, sorted in increasing order. </param>
-        /// <remarks> This is wonderful for testing, but relatively expensive computation and storage-wise. This also uses the right-continuous rather than left-continuous version of the ECDF, though it hardly matters.</remarks>
-        public static ContinuousDistribution ApproximatePiecewiseDistributionWithUpperTail(IList<double> data, int resolution = 1000)
-        {
-            // --- Construct the linear ECDF ---
-            // Copy the abscissas from the sample
-            List<double> abscissas = new List<double>(data.Count + resolution);
-            abscissas.AddRange(data);
-            // Evaluate the ECDF
-            List<double> cdfVals = new List<double>(data.Count + resolution);
-            for (int i = 0; i < data.Count; i++)
-            {
-                cdfVals.Add(i * 1.0 / data.Count);
-            }
-
-            // --- Attach the tail ---
-            // Estimate the tail parameters
-            PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersPickands(data, out double a, out double c, out int m);
-
-            // Remove the last 4m-1 CDF values so we can replace them with the tail
-            abscissas.RemoveRange(abscissas.Count - 4 * m + 1, 4 * m - 1);
-            cdfVals.RemoveRange(cdfVals.Count - 4 * m + 1, 4 * m - 1);
-            // The last element of the CDF approximation is now Z_4M
-
-            // Generate tail values evenly spaced over the quantiles of the conditional excess distribution function 1-G(x)
-            var quantiles = new List<double>(Interpolation.Linspace(0, 1, resolution + 1));
-            // Remove the first point, since we already have a point in the CDF at u and the conditional excess will always be 0 there
-            quantiles.RemoveAt(0);
-            // If the tail is unbounded, replace the quantile at 1 with 1 - 4 * epsilon
-            //if (c >= 0) { quantiles.RemoveAt(quantiles.Count - 1); }
-            if (c >= 0) { quantiles[quantiles.Count - 1] = 1 - Math.Pow(2, -50); }
-            // Replace the proportions with their associated abscissas (eg, the actual quantiles)
-            double Z4M = abscissas[abscissas.Count - 1]; // This is where the tail is to be attached
-            for (int i = 0; i < quantiles.Count; i++)
-            {
-                quantiles[i] = PickandsBalkemaDeHaan.TailQuantileFunction(quantiles[i], a, c);
-            }
-            // Add the CDF values first, then translate and add the abscissas
-            double offset = cdfVals[cdfVals.Count - 1]; // Vertical offset
-            double scale = 1 - offset; // How much of the full unit probability is left for the tail
-            for (int i = 0; i < quantiles.Count; i++)
-            {
-                cdfVals.Add(scale * PickandsBalkemaDeHaan.TailCDF(quantiles[i], a, c) + offset);
-                quantiles[i] += Z4M;
-            }
-            abscissas.AddRange(quantiles);
-
-            return new ContinuousDistribution(abscissas, cdfVals);
-        }
-        
+        #endregion
     }
 }

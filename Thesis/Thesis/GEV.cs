@@ -166,7 +166,7 @@ namespace Thesis
 
         public IEnumerable<double> Samples()
         {
-            throw new NotImplementedException();
+            yield return Sample();
         }
 
         public override string ToString()

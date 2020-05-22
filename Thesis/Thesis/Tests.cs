@@ -128,8 +128,8 @@ namespace Thesis
                 {
                     quants[i] = dist.InverseCumulativeDistribution(props[i]);
                 }
-                PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersV4(quants, out double a, out double c, out double u);
-                var tailApprox = new PickandsApproximation(quants, PickandsApproximation.FittingMethod.V4);
+                GPDApproximation.ApproximateExcessDistributionParametersV4(quants, out double a, out double c, out double u);
+                var tailApprox = new GPDApproximation(quants, GPDApproximation.FittingMethod.V4);
                 var sample = new double[10000];
                 for (int i = 0; i < 10000; i++)
                 {
@@ -380,7 +380,7 @@ namespace Thesis
             //for (int i = 0; i < smoothedData.Length; i++) { smoothedData[i] = 0.5 * (sample[i] + sample[i + 1]); }
             //var pickandsApprox = new PickandsApproximation(smoothedData, method: PickandsApproximation.FittingMethod.Pickands_SupNorm); // Construct a Pickands tail approx from the sample
 
-            var pickandsApprox = new PickandsApproximation(sample, method: PickandsApproximation.FittingMethod.V4); // Construct a Pickands tail approx from the sample
+            var pickandsApprox = new GPDApproximation(sample, method: GPDApproximation.FittingMethod.V4); // Construct a Pickands tail approx from the sample
             // Bootstrap observations of the distribution of the sample maximum from the Pickands model
             double[] approxObservations = new double[observations.Length];
             for (int i = 0; i < approxObservations.Length; i++)
@@ -509,8 +509,8 @@ namespace Thesis
             data.Sort();
 
             // Apply the new and old Pickands code and write them to the output for comparison
-            ContinuousDistribution oldVersion = PickandsApproximation.ApproximatePiecewiseDistributionWithUpperTail(data, 1000);
-            PickandsApproximation newVersion = new PickandsApproximation(data);
+            ContinuousDistribution oldVersion = GPDApproximation.ApproximatePiecewiseDistributionWithUpperTail(data, 1000);
+            GPDApproximation newVersion = new GPDApproximation(data);
 
             raw = new double[10000];
             // Generate new data from the approximation
@@ -568,7 +568,7 @@ namespace Thesis
                 Program.logger.WriteLine($"{i},{data[i]},{(i + 1.0) / data.Length}");
             }
 
-            PickandsBalkemaDeHaan.ApproximateExcessDistributionParametersV4(data, out double a, out double c, out double u);
+            GPDApproximation.ApproximateExcessDistributionParametersV4(data, out double a, out double c, out double u);
         }
 
         public static void TestGEVComplementComputations()

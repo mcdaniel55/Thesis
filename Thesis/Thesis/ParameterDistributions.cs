@@ -113,7 +113,7 @@ namespace Thesis
 
             // Start by computing a tail estimate. The PBDH theorem says this should be GPD shaped. 
             // We are using a small amount of smoothing on the ECDF as well here
-            var pickandsApprox = new PickandsApproximation(data, method: PickandsApproximation.FittingMethod.V4);
+            var pickandsApprox = new GPDApproximation(data, method: GPDApproximation.FittingMethod.V4);
             // Bootstrap observations of the max under this model
             for (int i = 0; i < bootstrapStorage.Length; i++)
             {
