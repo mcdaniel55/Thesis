@@ -107,34 +107,34 @@ namespace Thesis
             //return MeanCLT(sortedData.ToArray());
         }
 
-        public static ParameterDistribution OneOverNthQuantileViaSampleMinimumParameterDistribution(double[] data, double[] bootstrapStorage, Random rand = null)
+        public static ParameterDistribution OneOverNthQuantileViaSampleMinimumParameterDistribution(double[] data, double[] monteCarloStorage, Random rand = null)
         {
             if (rand == null) rand = Program.rand;
 
             // Start by computing a tail estimate. The PBDH theorem says this should be GPD shaped. 
             // We are using a small amount of smoothing on the ECDF as well here
-            var pickandsApprox = new GPDApproximation(data, method: GPDApproximation.FittingMethod.V4);
-            // Bootstrap observations of the max under this model
-            for (int i = 0; i < bootstrapStorage.Length; i++)
+            var GPDECDFApprox = new GPDApproximation(data, method: GPDApproximation.FittingMethod.V4);
+            // Make observations of the max under this model
+            for (int i = 0; i < monteCarloStorage.Length; i++)
             {
                 double max = double.NegativeInfinity;
                 for (int j = 0; j < data.Length; j++) // Same number of observations as original sample
                 {
-                    max = Math.Max(max, pickandsApprox.Sample());
+                    max = Math.Max(max, GPDECDFApprox.Sample());
                 }
-                bootstrapStorage[i] = max;
+                monteCarloStorage[i] = max;
             }
-            Sorting.Sort(bootstrapStorage);
+            Sorting.Sort(monteCarloStorage);
 
             // --- Optimize to find the best-fit GEV model for these observations ---
             // Note: Optimization is no longer required here, so these methods are not used
-            #region Helper Methods
+            #region Helper Methods (Deprecated)
             double FitnessSquaredError(GEV model)
             {
                 double val = 0;
-                for (int i = 0; i < bootstrapStorage.Length; i++)
+                for (int i = 0; i < monteCarloStorage.Length; i++)
                 {
-                    double deviation = model.CumulativeDistribution(bootstrapStorage[i]) - (i + 1) * 1.0 / bootstrapStorage.Length;
+                    double deviation = model.CumulativeDistribution(monteCarloStorage[i]) - (i + 1) * 1.0 / monteCarloStorage.Length;
                     val += deviation * deviation;
                 }
                 return val;
@@ -156,8 +156,10 @@ namespace Thesis
             }
             #endregion
 
+            #region Old Code: Moment Estimator and Optimization
+            /*
             // Initial guesses
-            double shapeGuess = Math.Max(-5, Math.Min(pickandsApprox.c, 3)); // Shape in PBD is also an estimate of the shape of the GEV
+            double shapeGuess = Math.Max(-5, Math.Min(GPDECDFApprox.c, 3)); // Shape in PBD is also an estimate of the shape of the GEV
             double locationGuess, scaleGuess;
             if (shapeGuess < 0)
             {
@@ -175,6 +177,7 @@ namespace Thesis
 #if DEBUG
             if (scaleGuess <= 0 || double.IsNaN(scaleGuess)) throw new Exception("Scale must be > 0.");
 #endif
+            */
 
             // Testing
             /*
@@ -194,12 +197,23 @@ namespace Thesis
             // Skip opt
             //return new GEV(data[data.Length - 1], scaleGuess, shapeGuess, rand); // Needs the data to be sorted ahead of time
             //return new GEV(locationGuess, scaleGuess, shapeGuess, rand); // Try this with the sample max instead of the locGuess
+            #endregion
 
-            double sampleMax = double.NegativeInfinity; // Compute the sample max
+            // Compute the parameters of the GEV distribution of the observed maxima
+            // These two are pretty much exact with mild assumptions
+            double mu = GPDECDFApprox.Quantile((data.Length - 1) * 1.0 / data.Length);
+            double xi = Math.Max(-5, Math.Min(GPDECDFApprox.c, 3));
+
+            // Sigma is computed from the observations of the max
+            GEV gevApprox = GEVApprox.ViaMLE(monteCarloStorage, mu, xi);
+            //GEV errorDist = new GEV(mu - gevApprox.Median, gevApprox.scale, gevApprox.shape); // Median version
+            var errorDist = new GEV(0, gevApprox.scale, gevApprox.shape); // Location is always 0 here
+
+            // Compute the sample max
+            double sampleMax = double.NegativeInfinity; 
             for (int i = 0; i < data.Length; i++) { sampleMax = Math.Max(sampleMax, data[i]); }
-            var errorDist = new GEV(0, scaleGuess, shapeGuess); // Location is always 0 here
+
             return new ParameterDistribution(errorDist, sampleMax, errorDist.InverseCumulativeDistribution(Math.Pow(2, -26)), errorDist.InverseCumulativeDistribution(1 - Math.Pow(2, -26))); // Sqrt epsilon quantile bounds
-            //return new GEV(0, scaleGuess, shapeGuess);
         }
     }
 }

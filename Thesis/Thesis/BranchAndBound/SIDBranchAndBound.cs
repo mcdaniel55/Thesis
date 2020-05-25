@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics;
-using System.Threading;
 
 namespace Thesis.BranchAndBound
 {
@@ -90,10 +89,7 @@ namespace Thesis.BranchAndBound
                 activeBranches = newActiveBranches.ToArray();
 
                 // Storage for the estimating distribution of the guiding parameter of each branch
-                //var parameterDistributions = new IContinuousDistribution[activeBranches.Length];
                 var negatedDistributions = new IDistributionWrapper[activeBranches.Length];
-                //var upperBounds = new double[parameterDistributions.Length];
-                //var lowerBounds = new double[parameterDistributions.Length];
                 #endregion
 
                 #region Sampling
@@ -118,10 +114,6 @@ namespace Thesis.BranchAndBound
                             {
                                 Normal dist = ParameterDistributions.MeanCLT(fitnessStorage);
                                 negatedDistributions[index] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
-                                //parameterDistributions[idx] = dist;
-                                // Assign upper and lower bounds
-                                //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
                                 break;
                             }
                         case GuidingParameter.Median:
@@ -130,20 +122,12 @@ namespace Thesis.BranchAndBound
                                 Sorting.Sort(fitnessStorage);
                                 Normal dist = ParameterDistributions.MedianBootstrapMemoryFriendly(fitnessStorage, bootstrapStorage, activeBranches[index].rand);
                                 negatedDistributions[index] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
-                                //parameterDistributions[idx] = dist;
-                                // Assign upper and lower bounds
-                                //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
                                 break;
                             }
                         case GuidingParameter.LowerMean:
                             {
                                 Normal dist = ParameterDistributions.MeanOfLessThanQuantile(fitnessStorage, 0.1);
                                 negatedDistributions[index] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
-                                //parameterDistributions[idx] = dist;
-                                // Assign upper and lower bounds
-                                //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
                                 break;
                             }
                         case GuidingParameter.OneOverNthQuantile:
@@ -155,11 +139,6 @@ namespace Thesis.BranchAndBound
                                 }
                                 Sorting.Sort(fitnessStorage);
                                 negatedDistributions[index] = ParameterDistributions.OneOverNthQuantileViaSampleMinimumParameterDistribution(fitnessStorage, bootstrapStorage, activeBranches[index].rand);
-                                //GEV dist = ParameterDistributions.SampleMinimumErrorDistMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
-                                //parameterDistributions[idx] = dist;
-                                // Assign upper and lower bounds
-                                //upperBounds[idx] = dist.Quantile(ComplementEpsilon12);
-                                //lowerBounds[idx] = dist.Quantile(Epsilon12);
                                 break;
                             }
                     }
@@ -171,104 +150,6 @@ namespace Thesis.BranchAndBound
                     int threadCount = Environment.ProcessorCount; // # of logical processors, including hyperthreading etc.
                     //int threadCount = 4; // Temp limit
                     Parallel.For(0, batches.Length, new ParallelOptions() { MaxDegreeOfParallelism = threadCount }, (int i) => { GetParameterDistribution(i); } );
-                    
-                    #region Old Code
-                    /*
-                    
-
-                    var tasks = new Task[threadCount];
-                    //for (int i = 0; i < tasks.Length; i++) { tasks[i] = null; } // Initialize the task array to null
-                    for (int i = 0; i < tasks.Length; i++) { tasks[i] = Task.Run(() => { return; }); } // Filler
-
-                    // Reusable storage for each thread; each chunk of storage holds SampleSize many doubles, and is checked out for temporary use by a BranchSamplingBatch
-                    var fitnessStorage = new double[threadCount][];
-                    for (int i = 0; i < threadCount; i++) { fitnessStorage[i] = new double[sampleSize]; }
-                    // Same for bootstrap sampling storage
-                    var bootstrapStorage = new double[threadCount][];
-                    for (int i = 0; i < threadCount; i++) { bootstrapStorage[i] = new double[BootstrapSampleSize]; }
-
-                    int getAvailableTaskIndex()
-                    {
-                        for (int i = 0; i < tasks.Length; i++) { if (tasks[i] == null || tasks[i].IsCompleted) { return i; } }
-                        return -1;
-                    }
-
-                    for (int i = 0; i < activeBranches.Length; i++)
-                    {
-                        int taskIdx = getAvailableTaskIndex();
-                        if (taskIdx > -1)
-                        {
-                            // Capture a copy of the current value of i; do not let the compiler use i in the closure of the lambda expression below
-                            int idx = i;
-
-                            tasks[taskIdx] = Task.Run(() => {
-                                // Run the sampling
-                                batches[idx].SampleNonAlloc(fitnessStorage[taskIdx], FitnessFunction);
-
-                                // Compute the estimating distribution of the guiding parameter
-                                switch (GuidingParam)
-                                {
-                                    case GuidingParameter.Mean:
-                                        {
-                                            Normal dist = ParameterDistributions.MeanCLT(fitnessStorage[taskIdx]);
-                                            negatedDistributions[idx] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
-                                            //parameterDistributions[idx] = dist;
-                                            // Assign upper and lower bounds
-                                            //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                            //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
-                                            break;
-                                        }
-                                    case GuidingParameter.Median:
-                                        {
-                                            // Sort the fitness data in place
-                                            Sorting.Sort(fitnessStorage[taskIdx]);
-                                            Normal dist = ParameterDistributions.MedianBootstrapMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
-                                            negatedDistributions[idx] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
-                                            //parameterDistributions[idx] = dist;
-                                            // Assign upper and lower bounds
-                                            //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                            //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
-                                            break;
-                                        }
-                                    case GuidingParameter.LowerMean:
-                                        {
-                                            Normal dist = ParameterDistributions.MeanOfLessThanQuantile(fitnessStorage[taskIdx], 0.5);
-                                            negatedDistributions[idx] = new NegatedDistribution(dist, dist.Mean - NormalBoundStdDevs * dist.StdDev, dist.Mean + NormalBoundStdDevs * dist.StdDev);
-                                            //parameterDistributions[idx] = dist;
-                                            // Assign upper and lower bounds
-                                            //upperBounds[idx] = dist.Mean + NormalBoundStdDevs * dist.StdDev;
-                                            //lowerBounds[idx] = dist.Mean - NormalBoundStdDevs * dist.StdDev;
-                                            break;
-                                        }
-                                    case GuidingParameter.OneOverNthQuantile:
-                                        {
-
-                                            for (int j = 0; j < sampleSize; j++)
-                                            {
-                                                fitnessStorage[taskIdx][j] *= -1.0;
-                                            }
-                                            Sorting.Sort(fitnessStorage);
-                                            negatedDistributions[idx] = ParameterDistributions.NMinusOneOverNthQuantileViaSampleMinimumParameterDistribution(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
-                                            //GEV dist = ParameterDistributions.SampleMinimumErrorDistMemoryFriendly(fitnessStorage[taskIdx], bootstrapStorage[taskIdx], activeBranches[idx].rand);
-                                            //parameterDistributions[idx] = dist;
-                                            // Assign upper and lower bounds
-                                            //upperBounds[idx] = dist.Quantile(ComplementEpsilon12);
-                                            //lowerBounds[idx] = dist.Quantile(Epsilon12);
-                                            break;
-                                        }
-                                }
-                            });
-                        }
-                        else
-                        {
-                            Task.WaitAny(tasks);
-                            i--;
-                        }
-                    }
-                    //for (int i = 0; i < tasks.Length; i++) { if (tasks[i] == null) tasks[i] = Task.Run(() => { Thread.Sleep(1); }); } // Filler
-                    Task.WaitAll(tasks); // Once this has completed, we have sampled all of the branches.
-                    */
-                    #endregion
                 }
                 else // Synchronous case
                 {
@@ -286,16 +167,12 @@ namespace Thesis.BranchAndBound
 
                         Sorting.Sort(fitnessStorage);
                         negatedDistributions[i] = ParameterDistributions.OneOverNthQuantileViaSampleMinimumParameterDistribution(fitnessStorage, bootstrapStorage, activeBranches[i].rand);
-                        //parameterDistributions[i] = dist;
-                        // Assign upper and lower bounds
-                        //upperBounds[i] = dist.Quantile(ComplementEpsilon12);
-                        //lowerBounds[i] = dist.Quantile(Epsilon12);
                     }
                 }
                 
                 #endregion
 
-                // Update the best observation so far (this is not yet implemented at a lower level within the batches themselves)
+                // Update the best observation so far
                 for (int i = 0; i < batches.Length; i++)
                 {
                     if (batches[i].BestObservedFitness < BestFitnessObserved)
@@ -306,10 +183,7 @@ namespace Thesis.BranchAndBound
                 }
 
                 #region Discarding
-                // The goal here is to do pre-emptive discarding and put the remaining (negated) sampling distributions in this list
-                //var negatedDistributions = new IDistributionWrapper[] { };
                 // --- Pre-emptive discarding ---
-                //bool performedPreEmptive = false;
                 
                 // Normal Pairwise Discarding
                 if (negatedDistributions[0].GetWrappedDistribution().GetType() == typeof(Normal))
@@ -326,7 +200,6 @@ namespace Thesis.BranchAndBound
                             negatedDistributions[discardIndex] = null;
                             normals[discardIndex] = null;
                             activeBranches[discardIndex] = null;
-                            //performedPreEmptive = true;
                             continue;
                         }
                         break;
@@ -344,7 +217,6 @@ namespace Thesis.BranchAndBound
                         {
                             negatedDistributions[i] = null;
                             activeBranches[i] = null;
-                            //performedPreEmptive = true;
                         }
                     }
                 }
@@ -367,17 +239,13 @@ namespace Thesis.BranchAndBound
                 double[] discardComplements; // The discard probabilities are in complement form (1 - P(D_i)) in this array
                 if (GuidingParam == GuidingParameter.OneOverNthQuantile)
                 {
-                    // If the guiding parameter is the 1/nth quantile, then the integral will become too hard to compute. 
-                    // Use a foolproof alternative for now, until we can find a better way to compute it
                     //discardComplements = DiscardProbabilityComputation.ComplementsMonteCarloMaximizing(negatedDistributions);
                     //discardComplements = DiscardProbabilityComputation.ComplementsQuantileTrapRule(negatedDistributions);
                     discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions);
                 }
                 else
                 {
-                    // Debug this
                     discardComplements = DiscardProbabilityComputation.ComplementsClenshawCurtisAutomatic(negatedDistributions, errorTolerance: 1E-8, maxIterations: 10);
-                    // Temp
                     //discardComplements = DiscardProbabilityComputation.ComplementsMonteCarloMaximizing(negatedDistributions);
                 }
                 
