@@ -9,7 +9,7 @@ namespace Thesis
 {
     class Logger : IDisposable
     {
-        StreamWriter writer;
+        readonly StreamWriter writer;
         public readonly string filePath;
 
         /// <summary> Wraps a streamwriter for outputting content to a text file </summary>
@@ -20,8 +20,7 @@ namespace Thesis
             try
             {
                 filePath = CreateUniqueOutputFilePath(fname);
-                writer = new StreamWriter(filePath);
-                writer.AutoFlush = true;
+                writer = new StreamWriter(filePath) { AutoFlush = true };
             }
             catch (Exception e) { Console.WriteLine(e); }
         }

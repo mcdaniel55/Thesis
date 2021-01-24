@@ -24,11 +24,11 @@ namespace Thesis
                 PartAmbs: new int[Station.List.Count],
                 TargetAmbulanceCount: 10,
                 rand: Program.rand);
-            var Problem = new SIDBranchAndBound<Tuple<int[],int[]>>(solutionSpace, FitnessFunctions.EMSPlanFitness, GuidingParameter.LowerMean);
+            var Problem = new SIDBranchAndBound<Tuple<int[],int[]>>(solutionSpace, FitnessFunctions.EMSPlanFitness, GuidingParameter.OneOverNthQuantile);
 
             Logging.Log("Problem Initialized");
 
-            Branch[] branchSet = Problem.BranchAndBound(sampleSize: 1000, iterations: 9, confidenceLevel: 0.95, cullDuplicates: true, multiThread: true);
+            Branch[] branchSet = Problem.BranchAndBound(sampleSize: 5000, iterations: 9, confidenceLevel: 0.99, cullDuplicates: true, multiThread: true);
 
             // Print the set of branches produced by the B&B routine
             foreach (Branch branch in branchSet)

@@ -6,10 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Temp\NormalComparison.cs" />
-    <Compile Remove="Temp\SIDBranchAndBound.cs" />
-    <Compile Remove="Temp\SPTest.cs" />
-    <Compile Remove="Temp\TestCode.cs" />
+    <Compile Remove="Temp\**" />
+    <EmbeddedResource Remove="Temp\**" />
+    <None Remove="Temp\**" />
   </ItemGroup>
 
   <ItemGroup>

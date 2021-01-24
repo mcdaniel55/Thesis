@@ -107,5 +107,10 @@ namespace Thesis.BranchAndBound
             }
             return builder.ToString();
         }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(FullAmbs, PartAmbs);
+        }
     }
 }

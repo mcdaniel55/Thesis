@@ -34,14 +34,14 @@ namespace Thesis
 
             //Tests.RunIntroOptimization();
             //Tests.RunWickedCombOptimization();
-            //Tests.RunEggholderOptimization();
+            Tests.RunEggholderOptimization();
 
             //Tests.TestNewTailFittingV4();
             //Tests.TestGEVComplementComputations();
 
             //Tests.TestNegatedParameterDistributionWrapper();
 
-            Tests.RunEMSOptimization();
+            //Tests.RunEMSOptimization();
             //Tests.TestQuantileTrap();
 
             //Tests.TestGEVLocation();

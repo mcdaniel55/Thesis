@@ -12,9 +12,7 @@ namespace Thesis.BranchAndBound
     public class SIDBranchAndBound<T>
     {
         #region Properties
-        private const int BootstrapSampleSize = 250;
-        private static readonly double Epsilon12 = Math.Pow(2, -40);
-        private static readonly double ComplementEpsilon12 = 1.0 - Math.Pow(2, -40);
+        private const int MONTE_CARLO_SAMPLE_SIZE = 250;
         private static readonly double NormalBoundStdDevs = Normal.InvCDF(0, 1, 1 - Math.Pow(2, -48)); // Roughly 8 standard deviations
         private static readonly double PreemptiveDiscardConfidenceThreshold = 0.99999;
 
@@ -102,7 +100,7 @@ namespace Thesis.BranchAndBound
                 {
                     // Inefficient allocation, but not a big deal
                     double[] fitnessStorage = new double[sampleSize];
-                    double[] bootstrapStorage = new double[BootstrapSampleSize];
+                    double[] bootstrapStorage = new double[MONTE_CARLO_SAMPLE_SIZE];
                     
                     // Run the sampling
                     batches[index].SampleNonAlloc(fitnessStorage, FitnessFunction);
@@ -147,14 +145,14 @@ namespace Thesis.BranchAndBound
 
                 if (multiThread)
                 {
-                    int threadCount = Environment.ProcessorCount; // # of logical processors, including hyperthreading etc.
-                    //int threadCount = 4; // Temp limit
+                    //int threadCount = Environment.ProcessorCount; // # of logical processors, including hyperthreading etc.
+                    int threadCount = 6; // Temp limit
                     Parallel.For(0, batches.Length, new ParallelOptions() { MaxDegreeOfParallelism = threadCount }, (int i) => { GetParameterDistribution(i); } );
                 }
                 else // Synchronous case
                 {
                     var fitnessStorage = new double[sampleSize];
-                    var bootstrapStorage = new double[BootstrapSampleSize];
+                    var monteCarloStorage = new double[MONTE_CARLO_SAMPLE_SIZE];
                     for (int i = 0; i < batches.Length; i++)
                     {
                         batches[i].SampleNonAlloc(fitnessStorage, FitnessFunction);
@@ -166,8 +164,11 @@ namespace Thesis.BranchAndBound
                         }
 
                         Sorting.Sort(fitnessStorage);
-                        negatedDistributions[i] = ParameterDistributions.OneOverNthQuantileViaSampleMinimumParameterDistribution(fitnessStorage, bootstrapStorage, activeBranches[i].rand);
+                        negatedDistributions[i] = ParameterDistributions.OneOverNthQuantileViaSampleMinimumParameterDistribution(fitnessStorage, monteCarloStorage, activeBranches[i].rand);
                     }
+#if DEBUG
+                    Program.logger.WriteLine("Break SID 172");
+#endif
                 }
                 
                 #endregion
@@ -283,7 +284,7 @@ namespace Thesis.BranchAndBound
                 Program.logger.WriteLine($"Completed iteration {iteration}. Active branches:");
                 for (int i = 0; i < activeBranches.Length; i++)
                 {
-                    Program.logger.WriteLine($"{activeBranches[i]?.ToString()}");
+                    if(activeBranches[i] != null) Program.logger.WriteLine($"{activeBranches[i].ToString()}");
                 }
 
                 #endregion

@@ -98,13 +98,6 @@ namespace Thesis
             }
 
             return new Normal(lowerMean, Math.Sqrt(Statistics.VarianceEstimate(bootstrapObservations)));
-
-            // Old version
-            // Find the qth quantile and remove everything above that
-            //double qthQuantile = Statistics.Quantile(sortedData, q);
-            //sortedData.RemoveAll(x => x > qthQuantile);
-
-            //return MeanCLT(sortedData.ToArray());
         }
 
         public static ParameterDistribution OneOverNthQuantileViaSampleMinimumParameterDistribution(double[] data, double[] monteCarloStorage, Random rand = null)
@@ -113,7 +106,7 @@ namespace Thesis
 
             // Start by computing a tail estimate. The PBDH theorem says this should be GPD shaped. 
             // We are using a small amount of smoothing on the ECDF as well here
-            var GPDECDFApprox = new GPDApproximation(data, method: GPDApproximation.FittingMethod.V4);
+            var GPDECDFApprox = new GPDApproximation(data, GPDApproximation.FittingMethod.V4, rand);
             // Make observations of the max under this model
             for (int i = 0; i < monteCarloStorage.Length; i++)
             {
@@ -129,6 +122,7 @@ namespace Thesis
             // --- Optimize to find the best-fit GEV model for these observations ---
             // Note: Optimization is no longer required here, so these methods are not used
             #region Helper Methods (Deprecated)
+            /*
             double FitnessSquaredError(GEV model)
             {
                 double val = 0;
@@ -154,6 +148,7 @@ namespace Thesis
 
                 return new GEV(min[2], min[1], min[0], rand);
             }
+            */
             #endregion
 
             #region Old Code: Moment Estimator and Optimization

@@ -13,8 +13,8 @@ namespace Thesis
         public double a, c; // Parameters, with c corresponding to the gamma or xi parameter of the associated GEV distribution
         public double transitionProportion;
         public double transitionAbscissa;
-        List<double> sortedData;
-        Random rand;
+        readonly List<double> sortedData;
+        readonly Random rand;
         const double SHAPE_EPSILON = 1E-6;
 
         public enum FittingMethod { Pickands_SupNorm, BFGS_MSE, Moments_MSE, V4 }
