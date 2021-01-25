@@ -19,6 +19,16 @@ namespace Thesis
 
         public enum FittingMethod { Pickands_SupNorm, BFGS_MSE, Moments_MSE, V4 }
 
+        private GPDApproximation(IList<double> sortedData, double a, double c, double transitionProportion, double transitionAbscissa, Random rand = null)
+        {
+            this.sortedData = (List<double>)sortedData;
+            this.a = a;
+            this.c = c;
+            this.transitionProportion = transitionProportion;
+            this.transitionAbscissa = transitionAbscissa;
+            this.rand = rand ?? Program.rand;
+        }
+
         public GPDApproximation(IList<double> data, FittingMethod method = FittingMethod.Pickands_SupNorm, Random rand = null)
         {
             if (data.Count < 30) throw new ArgumentException("Insufficient data count for Pickands Balkema De Haan theorem.");
@@ -28,7 +38,7 @@ namespace Thesis
 
             switch (method)
             {
-                case FittingMethod.BFGS_MSE:
+                case FittingMethod.BFGS_MSE: // No longer used
                     ApproximateExcessDistributionParametersBFGS(sortedData, out a, out c, out transitionAbscissa);
                     // Compute the index of the closest element that is at or before u in the data
                     int transitionIndex = sortedData.BinarySearch(transitionAbscissa);
@@ -637,8 +647,94 @@ namespace Thesis
             c = bestC;
         }
 
+        /// <summary> Computes a variety of GPD/ECDF approximates for the provided data, and assigns each one a weight </summary>
+        /// <remarks> 
+        /// The overall approach is the same as in V4, but this returns all of the generated approximations rather than just the best one. 
+        /// The weights are computed according to P(model | data) ~ P(data | model), which by independence is the product of model PDF values over the datapoints.
+        /// </remarks>
+        internal static void GetTailApproximatesAndWeights(IList<double> sortedData, out List<GPDApproximation> approximations, out List<double> weights)
+        {
+            approximations = new List<GPDApproximation>(sortedData.Count);
+            weights = new List<double>(sortedData.Count);
 
-        /// <summary> An optimization for finding the best m, a, and c values, which is not designed for performance </summary>
+            // The upper tail is defined here by an ECDF interpolating linearly from (u,0) to (x_i, i/n) for data x_1, x_2, ..., x_n all greater than u.
+            // This is the model from which we compute the upper tail parameters, using method of moments.
+            // This midpoint version works slightly better than the plain ECDF
+            double MidpointMSE(IList<double> tailData, double scaleParam, double shapeParam)
+            {
+                int n = tailData.Count;
+
+                double sum = 0;
+                for (int i = 0; i < n - 1; i++)
+                {
+                    double GHat = TailCDF(0.5 * (tailData[i] + tailData[i + 1]) - tailData[0], scaleParam, shapeParam);
+                    double residual = (2.0 * i + 1) / (2.0 * n) - GHat;
+                    sum += residual * residual;
+                }
+                return sum / (n - 1);
+            }
+
+            double GetScore(double uval, out double scaleParam, out double shapeParam)
+            {
+                var tailData = GetTailData(sortedData, uval);
+                EstimateParamsMOM(tailData, out double scaleEst, out double shapeEst);
+                scaleParam = scaleEst;
+                shapeParam = shapeEst;
+                double score = MidpointMSE(tailData, scaleEst, shapeEst);
+                return score;
+            }
+
+            // Try several choices of u evenly spaced over (x_0, x_n-3), and keep the best fit
+            var uValues = Interpolation.Linspace(sortedData[0], sortedData[sortedData.Count - 5], sortedData.Count / 4);
+            double bestU = 0;
+            double bestA = 0;
+            double bestC = 0;
+            double bestScore = double.PositiveInfinity;
+            for (int i = 0; i < uValues.Length; i++)
+            {
+                double score = GetScore(uValues[i], out double scaleEst, out double shapeEst);
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestU = uValues[i];
+                    bestA = scaleEst;
+                    bestC = shapeEst;
+                }
+            }
+            // --- Refine the best so far by bisection search ---
+            double delta = uValues[1] - uValues[0];
+            for (int i = 0; i < 10; i++)
+            {
+                delta *= 0.5;
+                double forwardU = Math.Min(bestU + delta, sortedData[sortedData.Count - 3]); // Don't go so high that we don't have data to work with
+                double forwardScore = GetScore(forwardU, out double forwardScale, out double forwardShape);
+                double backwardScore = GetScore(bestU - delta, out double backwardScale, out double backwardShape);
+                if (forwardScore < bestScore)
+                {
+                    bestScore = forwardScore;
+                    bestU = forwardU;
+                    bestA = forwardScale;
+                    bestC = forwardShape;
+                }
+                if (backwardScore < bestScore)
+                {
+                    bestScore = backwardScore;
+                    bestU -= delta;
+                    bestA = backwardScale;
+                    bestC = backwardShape;
+                }
+            }
+
+            u = bestU;
+            a = bestA;
+            c = bestC;
+
+
+
+
+        }
+
+        /// <summary> An optimization for finding the best m, a, and c values, which does not attempt to minimize computation time </summary>
         internal static void ApproximateExcessDistributionParametersSlow(IList<double> data, out double a, out double c, out int m)
         {
             // The highest level of optimization here is deciding on M

@@ -196,7 +196,7 @@ namespace Thesis
 
             // Compute the parameters of the GEV distribution of the observed maxima
             // These two are pretty much exact with mild assumptions
-            double mu = GPDECDFApprox.Quantile((data.Length - 1) * 1.0 / data.Length);
+            double mu = GPDECDFApprox.Quantile((data.Length - 1) * 1.0 / data.Length); // (n-1)/n quantile of the GPD/ECDF model
             double xi = Math.Max(-5, Math.Min(GPDECDFApprox.c, 3));
 
             // Sigma is computed from the observations of the max
